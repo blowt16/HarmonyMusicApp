@@ -354,6 +354,7 @@ FormExtensionAbility
 <li>登录成功：保存 <code>isLoggedIn=true</code>、<code>nickname=demo</code>（不保存密码）；<code>startAbility</code> 成功后才 <code>terminateSelf()</code>；失败则停留并提示。</li>
 <li>启动 Main 后结束自身，建议配置 <code>removeMissionAfterTerminate</code>，避免返回键回到欢迎页。</li>
 <li>欢迎页定时器在 <code>aboutToDisappear</code> 中清理。</li>
+<li><code>EntryAbility</code> 不注册长期主题监听；如果登录页需要主题，只在页面内设置，销毁时移除监听，避免双 Ability 残留旧窗口回调。</li>
 <li><code>EntryAbility</code> 不再声明 <code>audioPlayback</code> 后台模式。</li>
 </ul>
 <p><strong>MainAbility</strong></p>
@@ -404,7 +405,13 @@ FormExtensionAbility
 <p><strong>实现</strong></p>
 <ul>
 <li>新增 <code>MusicFormAbility</code>（FormExtensionAbility）和 <code>MusicWidgetCard.ets</code>。</li>
-<li><code>form_config.json</code>：2×2、ArkTS UI、<code>updateEnabled: true</code>，按 SDK 模板设置 <code>updateDuration</code>/<code>scheduledUpdateTime</code>，目标 30 分钟；具体字段以 SDK 模板和模拟器实测为准。</li>
+<li><code>form_config.json</code> 按本机 <code>WallPaperCards</code> 实验验证过的结构配置：<ul>
+<li><code>uiSyntax: &quot;arkts&quot;</code>、<code>isDynamic: true</code>、<code>isDefault: true</code>、<code>updateEnabled: true</code>；</li>
+<li><code>updateDuration: 0</code> + <code>scheduledUpdateTime</code>（先用定点刷新）；</li>
+<li><code>defaultDimension: &quot;2*2&quot;</code>、<code>supportDimensions: [&quot;2*2&quot;]</code>。</li>
+</ul>
+</li>
+<li>卡片页使用 <code>@Entry(new LocalStorage())</code> + <code>@LocalStorageProp</code>，由 <code>formBindingData</code> 传入标题/副标题/状态。</li>
 <li>数据源：<strong>本地 Preferences 的最近播放</strong>，不依赖网络。<ul>
 <li>有历史：标题=最近歌曲名，副标题=歌手，状态=“继续听”；</li>
 <li>无历史：标题=“今天想听什么？”，副标题=“打开清听”，状态=“发现好音乐”。</li>
@@ -414,11 +421,12 @@ FormExtensionAbility
 <li>刷新链路：<ol>
 <li><code>onAddForm</code> 读取数据并保存 <code>formId</code>；</li>
 <li><code>onUpdateForm</code> 读取最新最近播放；</li>
-<li>系统定时刷新（按配置，约 30 分钟）；</li>
+<li>系统按 <code>scheduledUpdateTime</code> 刷新（定点；App 内立即刷新是主路径）；</li>
 <li>App 内播放歌曲变化/回到前台时，<code>WidgetService.refreshAll()</code> 读取 formId 并调用 <code>formProvider.updateForm</code>，实现立即更新；</li>
 <li><code>onRemoveForm</code> 清理 formId。</li>
 </ol>
 </li>
+<li>说明：本机实验已验证卡片可添加、<code>onUpdateForm</code> 可刷新、<code>router</code> 可拉起 EntryAbility；Preferences 读取需要在 Phase 3 用最小卡片再验证一次。</li>
 <li>点击：<code>postCardAction</code> 以 router 方式拉起 <code>EntryAbility</code>；Entry 检查登录态，未登录进登录页，已登录直接进 Main。</li>
 <li>验收：<ul>
 <li>桌面添加卡片，显示正确初始状态；</li>
