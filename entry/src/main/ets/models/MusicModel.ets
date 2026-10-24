@@ -10,6 +10,7 @@ export interface Song {
   lyric: string;
   availableQualities?: SongQualityInfo[];
   assetName?: string;
+  filePath?: string;
 }
 
 export interface Playlist {

@@ -1,5 +1,6 @@
 import media from '@ohos.multimedia.media';
 import resourceManager from '@ohos.resourceManager';
+import fs from '@ohos.file.fs';
 import { Song, PlayMode, PlayerState, LyricLine, AudioQuality, SongQualityInfo } from '../models/MusicModel';
 import { ApiService } from './ApiService';
 import { AudioSessionService, MediaCallbacks } from './AudioSessionService';
@@ -14,6 +15,7 @@ export class PlayerService {
   private storageService: StorageService;
   private resManager: resourceManager.ResourceManager | null = null;
   private rawFdPath: string = '';
+  private localFileFd: number = -1;
 
   private currentSong: Song | null = null;
   private historyRecorded: boolean = false;
@@ -122,6 +124,17 @@ export class PlayerService {
     this.resManager = manager;
   }
 
+  private closeLocalFileFd(): void {
+    if (this.localFileFd >= 0) {
+      try {
+        fs.closeSync(this.localFileFd);
+      } catch (e) {
+        console.error('Close local file fd error:', e);
+      }
+      this.localFileFd = -1;
+    }
+  }
+
   private async closeRawFd(): Promise<void> {
     if (this.resManager && this.rawFdPath) {
       try {
@@ -200,6 +213,7 @@ export class PlayerService {
       await oldPlayer.release();
     }
     await this.closeRawFd();
+    this.closeLocalFileFd();
 
     console.info('Creating new AVPlayer');
     const player: media.AVPlayer = await media.createAVPlayer();
@@ -218,7 +232,11 @@ export class PlayerService {
           break;
         case 'prepared':
           console.info('Player prepared, starting playback');
-          this.avPlayer?.play();
+          if (player.duration > 0) {
+            this.duration = player.duration / 1000;
+            this.notifyProgressChange(this.currentPosition, this.duration);
+          }
+          player.play();
           break;
         case 'playing':
           console.info('Player is now playing');
@@ -333,7 +351,33 @@ export class PlayerService {
       this.notifyStateChange(this.playerState);
       this.audioSessionService.updatePlaybackState(this.playerState, 0, this.duration);
 
-      // 本地示例音频走 rawfile fdSrc，不依赖网络
+      // 用户导入的本地文件：直接读应用私有目录，不依赖网络
+      if (song.filePath) {
+        try {
+          const stat = fs.statSync(song.filePath);
+          const file = fs.openSync(song.filePath, fs.OpenMode.READ_ONLY);
+          this.localFileFd = file.fd;
+          player.fdSrc = {
+            fd: file.fd,
+            offset: 0,
+            length: stat.size
+          };
+          this.duration = song.duration > 0 ? song.duration / 1000 : 0;
+          this.lyrics = [];
+          this.currentLyricIndex = -1;
+          this.notifyProgressChange(0, this.duration);
+          this.notifyLyricChange(-1, '');
+        } catch (e) {
+          console.error('Load local file error:', e);
+          this.closeLocalFileFd();
+          this.playerState = PlayerState.STOPPED;
+          this.notifyStateChange(this.playerState);
+          this.notifyError('本地文件无法播放，可能已被移动或删除');
+        }
+        return;
+      }
+
+      // 项目内置示例音频走 rawfile fdSrc，不依赖网络
       if (song.assetName) {
         if (!this.resManager || !this.avPlayer) {
           this.playerState = PlayerState.STOPPED;
@@ -542,7 +586,7 @@ export class PlayerService {
   setQuality(quality: AudioQuality) {
     this.currentQuality = quality;
     // 如果当前有歌曲在播放，重新加载（本地示例不重新加载）
-    if (this.currentSong && !this.currentSong.assetName &&
+    if (this.currentSong && !this.currentSong.assetName && !this.currentSong.filePath &&
       (this.playerState === PlayerState.PLAYING || this.playerState === PlayerState.PAUSED)) {
       this.playSong(this.currentSong);
     }
@@ -563,6 +607,7 @@ export class PlayerService {
 
   reset() {
     this.playbackEpoch++;
+    this.closeLocalFileFd();
     this.playQueue = Promise.resolve();
     this.currentSong = null;
     this.playlist = [];
@@ -592,5 +637,6 @@ export class PlayerService {
       }
     }
     await this.closeRawFd();
+    this.closeLocalFileFd();
   }
 }

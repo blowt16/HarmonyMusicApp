@@ -9,6 +9,7 @@ export struct LyricView {
   @State lyrics: LyricLine[] = [];
   @State currentIndex: number = -1;
   @State isLocalDemo: boolean = false;
+  @State isLocalFile: boolean = false;
 
   private playerService: PlayerService = PlayerService.getInstance();
   private scroller: Scroller = new Scroller();
@@ -29,6 +30,7 @@ export struct LyricView {
 
     this.songListener = (song: Song | null) => {
       this.isLocalDemo = song !== null && song.assetName !== undefined;
+      this.isLocalFile = song !== null && song.filePath !== undefined;
       setTimeout(() => {
         this.loadLyrics();
       }, 300);
@@ -48,8 +50,9 @@ export struct LyricView {
   loadLyrics() {
     const song: Song | null = this.playerService.getCurrentSong();
     this.isLocalDemo = song !== null && song.assetName !== undefined;
+    this.isLocalFile = song !== null && song.filePath !== undefined;
     const allLyrics: LyricLine[] = this.playerService.getLyrics();
-    this.lyrics = this.isLocalDemo ? [] : allLyrics;
+    this.lyrics = (this.isLocalDemo || this.isLocalFile) ? [] : allLyrics;
     this.currentIndex = this.playerService.getCurrentLyricIndex();
   }
 
@@ -95,12 +98,13 @@ export struct LyricView {
             .fontColor(this.playerMuted)
             .opacity(0.7)
 
-          Text(this.isLocalDemo ? '示例音频，无歌词' : '暂无歌词')
+          Text(this.isLocalDemo ? '示例音频，无歌词' : (this.isLocalFile ? '本地音乐，无歌词' : '暂无歌词'))
             .fontSize(15)
             .fontColor(this.playerMuted)
             .margin({ top: 16 })
 
-          Text(this.isLocalDemo ? '本地示例不包含歌词' : '静静聆听音乐的美好')
+          Text(this.isLocalDemo ? '本地示例不包含歌词' :
+            (this.isLocalFile ? '导入文件不包含歌词' : '静静聆听音乐的美好'))
             .fontSize(13)
             .fontColor(this.playerMuted)
             .opacity(0.65)

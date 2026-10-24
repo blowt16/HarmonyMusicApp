@@ -78,6 +78,7 @@ struct SettingsPage {
   @StorageLink('isDark') isDark: boolean = false;
 
   @State customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+  @State localCount: number = 0;
 
   private storageService: StorageService = StorageService.getInstance();
   private playerService: PlayerService = PlayerService.getInstance();
@@ -89,6 +90,15 @@ struct SettingsPage {
     } else {
       this.customMaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
     }
+    this.loadLocalCount();
+  }
+
+  onPageShow() {
+    this.loadLocalCount();
+  }
+
+  async loadLocalCount() {
+    this.localCount = (await this.storageService.getLocalSongs()).length;
   }
 
   async pickBgImage() {
@@ -265,6 +275,43 @@ struct SettingsPage {
   }
 
   @Builder
+  LocalMusicGroup() {
+    Column() {
+      Row() {
+        Text('♪')
+          .fontSize(20)
+          .fontColor(this.accent)
+          .width(36)
+        Column() {
+          Text('本地音乐')
+            .fontSize(15)
+            .fontColor(this.textPrimary)
+            .fontWeight(FontWeight.Medium)
+          Text(this.localCount > 0 ? `已导入 ${this.localCount} 首，可离线播放` : '导入手机里的音频文件，离线播放')
+            .fontSize(11)
+            .fontColor(this.textTertiary)
+            .margin({ top: 4 })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([this.textTertiary])
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+      .alignItems(VerticalAlign.Center)
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/LocalMusicPage' });
+      })
+    }
+    .width('100%')
+    .backgroundColor(this.bgSecondary)
+    .borderRadius(20)
+  }
+
+  @Builder
   AboutGroup() {
     Column() {
       Row() {
@@ -325,6 +372,9 @@ struct SettingsPage {
 
             this.GroupTitle('本地示例')
             this.LocalDemoGroup()
+
+            this.GroupTitle('本地音乐')
+            this.LocalMusicGroup()
 
             this.GroupTitle('关于')
             this.AboutGroup()
