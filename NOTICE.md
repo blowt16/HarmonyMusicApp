@@ -7,6 +7,6 @@ HarmonyMusicApp is a course project derived from:
 
 The base repository does not contain an explicit license file. This repository is public for course study only. The base repository has no explicit license; copyright remains with the original authors. Do not use the base code, third-party assets, or screenshots commercially. If the original authors request removal, we will comply.
 
-Third-party app screenshots in `docs/` are included only for course design research and comparison. Their copyright belongs to the respective applications and publishers.
+Third-party app screenshots in `UI调研与风格选择.html` are included only for course design research and comparison. Their copyright belongs to the respective applications and publishers.
 
 Any local demo audio added later will be generated for this project and documented in the README/report; no third-party copyrighted audio is included.
