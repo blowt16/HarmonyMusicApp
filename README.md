@@ -57,7 +57,7 @@ hdc install -r entry-default-unsigned.hap
 
 ## 来源与署名
 
-本项目基于 [wyyhm6](https://github.com/Hanmiao33/wyyhm6)，并参考 [HarmonyPulse](https://github.com/ASweetBite/HarmonyPulse) 的多 Ability 与工程化思路。原始项目未标注许可证，本仓库为课程用途的私有仓库；未经允许不要公开分发第三方代码或素材。
+本项目基于 [wyyhm6](https://github.com/Hanmiao33/wyyhm6)，并参考 [HarmonyPulse](https://github.com/ASweetBite/HarmonyPulse) 的多 Ability 与工程化思路。原始项目未标注许可证，本仓库为课程学习用途的公开仓库；第三方代码和素材的版权归原作者，若原作者要求删除会配合处理。
 
 本仓库的 UI 调研截图仅用于课程设计比较，版权归原应用/媒体所有。
 
