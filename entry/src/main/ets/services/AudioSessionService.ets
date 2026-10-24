@@ -86,7 +86,7 @@ export class AudioSessionService {
         wants: [
           {
             bundleName: this.context.applicationInfo.name,
-            abilityName: 'EntryAbility',
+            abilityName: 'MainAbility',
           }
         ],
         actionType: wantAgent.OperationType.START_ABILITY,

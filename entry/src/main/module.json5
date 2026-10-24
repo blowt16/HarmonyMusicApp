@@ -20,6 +20,7 @@
         "startWindowIcon": "$media:startIcon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
+        "removeMissionAfterTerminate": true,
         "skills": [
           {
             "entities": [
@@ -29,7 +30,18 @@
               "ohos.want.action.home"
             ]
           }
-        ],
+        ]
+      },
+      {
+        "name": "MainAbility",
+        "srcEntry": "./ets/mainability/MainAbility.ets",
+        "description": "$string:MainAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:MainAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "launchType": "singleton",
         "backgroundModes": [
           "audioPlayback"
         ]
@@ -54,7 +66,7 @@
         "name": "ohos.permission.INTERNET",
         "reason": "$string:internet_permission_reason",
         "usedScene": {
-          "abilities": ["EntryAbility"],
+          "abilities": ["MainAbility"],
           "when": "always"
         }
       },
@@ -62,7 +74,7 @@
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
         "reason": "$string:background_running_reason",
         "usedScene": {
-          "abilities": ["EntryAbility"],
+          "abilities": ["MainAbility"],
           "when": "always"
         }
       }

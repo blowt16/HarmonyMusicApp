@@ -13,6 +13,14 @@
       "value": "清听"
     },
     {
+      "name": "MainAbility_desc",
+      "value": "清听主界面与播放"
+    },
+    {
+      "name": "MainAbility_label",
+      "value": "清听"
+    },
+    {
       "name": "internet_permission_reason",
       "value": "用于在线搜索与播放音乐"
     },

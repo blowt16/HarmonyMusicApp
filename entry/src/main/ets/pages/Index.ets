@@ -1,11 +1,14 @@
 import { ApiService } from '../services/ApiService';
 import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
+import { AuthService } from '../services/AuthService';
+import { AudioSessionService } from '../services/AudioSessionService';
 import { thumbnail } from '../utils/ImageUtils';
 import { Song, AudioQuality, PlaylistInfo, EffectLevel, PlayerState } from '../models/MusicModel';
 import { FavoritesView } from './views/FavoritesView';
 import { ProfileView } from './views/ProfileView';
 import router from '@ohos.router';
+import { common, Want } from '@kit.AbilityKit';
 import { promptAction } from '@kit.ArkUI';
 import {
   HdsNavigation,
@@ -104,6 +107,8 @@ struct Index {
   private apiService: ApiService = ApiService.getInstance();
   private playerService: PlayerService = PlayerService.getInstance();
   private storageService: StorageService = StorageService.getInstance();
+  private authService: AuthService = AuthService.getInstance();
+  private audioSessionService: AudioSessionService = AudioSessionService.getInstance();
   private tabsController: HdsTabsController = new HdsTabsController();
   private customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
 
@@ -112,6 +117,11 @@ struct Index {
 
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
+    this.authService.setContext(getContext(this));
+    const savedNickname: string = await this.authService.getNickname();
+    if (savedNickname) {
+      this.nickname = savedNickname;
+    }
 
     const savedQuality: AudioQuality = await this.storageService.getAudioQuality();
     this.playerService.setQuality(savedQuality);
@@ -342,9 +352,25 @@ struct Index {
     router.pushUrl({ url: 'pages/SettingsPage' });
   }
 
-  handleLogout() {
-    // 登录能力在 Phase 2 接入，这里先给出明确提示，避免假装已退出。
-    promptAction.showToast({ message: '演示账号模式下暂不支持退出', duration: 1500 });
+  async handleLogout() {
+    const context = getContext(this) as common.UIAbilityContext;
+    try {
+      this.playerService.stop();
+      await this.playerService.release();
+      await this.audioSessionService.destroy();
+      await this.authService.logout();
+
+      const want: Want = {
+        bundleName: context.applicationInfo.name,
+        abilityName: 'EntryAbility',
+        parameters: { showLogin: true }
+      };
+      await context.startAbility(want);
+      await context.terminateSelf();
+    } catch (e) {
+      console.error('Logout error:', e);
+      promptAction.showToast({ message: '退出登录失败，请重试', duration: 1500 });
+    }
   }
 
   getBarFloatingStyle(): HdsTabsFloatingStyle {
