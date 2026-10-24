@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HarmonyMusicApp 二次开发方案 · v1.1 审核稿</title><style>
+:root{--bg:#f6f3ed;--paper:#fffdf9;--ink:#1b1c1e;--muted:#62666d;--line:#e4ded4;--accent:#e4575f;--soft:#fdebed;--code:#1c1d22}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(circle at 92% 0,rgba(249,217,212,.65),transparent 28%),var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;-webkit-font-smoothing:antialiased}
+a{color:#b33d47;text-decoration:none;border-bottom:1px solid #e7b9bd}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+.hero{padding:64px 0 34px}
+.eyebrow{font-size:12px;letter-spacing:.16em;color:#966a5d;font-weight:800;text-transform:uppercase}
+h1{font-size:clamp(38px,6vw,68px);line-height:1.06;letter-spacing:-.045em;margin:14px 0 18px;font-weight:800;max-width:900px}
+.hero p{font-size:17px;color:var(--muted);max-width:800px;margin:0 0 18px}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-size:12px;border:1px solid var(--line);background:rgba(255,255,255,.65);border-radius:999px;padding:6px 11px;color:#5e6269}
+.badge strong{color:var(--accent)}
+.review{margin-top:22px;background:#fff;border:2px solid var(--accent);border-radius:20px;padding:18px 20px;box-shadow:0 14px 40px rgba(228,87,95,.10)}
+.review h3{margin:0 0 6px;font-size:16px}
+.review p{margin:0;color:#555a61;font-size:14px}
+.review .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.review .actions a{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#faf7f1;border-bottom:1px solid var(--line);font-size:13px}
+.review .actions a.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:38px;padding-bottom:70px}
+.toc{position:sticky;top:24px;align-self:start;font-size:13px;border-left:1px solid var(--line);padding-left:16px}
+.toc .label{font-size:11px;letter-spacing:.12em;color:#9a6b5f;font-weight:800;margin-bottom:10px}
+.toc a{display:block;padding:5px 0;color:#64686e;border:0}
+.toc a:hover{color:var(--accent)}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:24px;padding:36px 42px;box-shadow:0 12px 36px rgba(31,25,20,.05);min-width:0}
+.paper h2{font-size:26px;line-height:1.25;letter-spacing:-.02em;margin:44px 0 12px;padding-top:8px;border-top:1px solid #eee9e1}
+.paper h2:first-child{margin-top:0;border-top:0;padding-top:0}
+.paper h3{font-size:18px;margin:26px 0 8px}
+.paper h4{font-size:15px;margin:18px 0 6px}
+.paper p{margin:8px 0 12px;color:#41454b;font-size:15px}
+.paper ul,.paper ol{margin:8px 0 14px;padding-left:24px;color:#41454b;font-size:15px}
+.paper li{margin:5px 0}
+.paper strong{color:#17181a}
+.paper blockquote{margin:16px 0;padding:12px 16px;background:var(--soft);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;color:#5b3e43}
+.paper blockquote p{margin:0;font-size:14px}
+.paper code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em;background:#f0ece5;padding:2px 5px;border-radius:5px;color:#8e3d45}
+.paper pre{background:var(--code);color:#eae8e4;padding:16px 18px;border-radius:14px;overflow:auto;font-size:12.5px;line-height:1.6}
+.paper pre code{background:none;color:inherit;padding:0}
+.paper table{width:100%;border-collapse:collapse;margin:14px 0 20px;font-size:13px;display:block;overflow:auto}
+.paper th,.paper td{border:1px solid #e9e3da;padding:9px 11px;text-align:left;vertical-align:top}
+.paper th{background:#f8f4ed;color:#6d625c;font-size:11px;letter-spacing:.03em;text-transform:uppercase}
+.paper td{color:#4e5258}
+.paper tr:nth-child(even) td{background:#fcfaf6}
+.paper hr{border:0;border-top:1px solid #eee9e1;margin:32px 0}
+.paper a{word-break:break-word}
+footer{border-top:1px solid var(--line);padding:24px 0 50px;color:#82858b;font-size:12px}
+@media (max-width:860px){.layout{display:block}.toc{position:static;border-left:0;border-top:1px solid var(--line);padding:14px 0 0;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:4px 14px}.toc .label{width:100%}.paper{padding:24px 20px;border-radius:18px}.hero{padding:46px 0 24px}}
+@media print{.toc,.review .actions{display:none}.layout{display:block}.paper{border:0;box-shadow:none;padding:0}.hero{padding-top:0}}
+.paper > h1{display:none}
+</style></head>
+<body>
+<header class="hero"><div class="wrap">
+<div class="eyebrow">HarmonyMusicApp · Course Project · v1.1 Review</div>
+<h1>HarmonyMusicApp<br>二次开发方案</h1>
+<p>基于 wyyhm6 的课程项目。v1.1 已纳入动态卡片、固定 demo 登录、双 Ability、本地示例音频四项决策，并补齐音频所有权、深色播放页、历史刷新、API 异常和阶段提交流程。</p>
+<div class="badges">
+<span class="badge">版本 <strong>v1.1</strong></span>
+<span class="badge">仓库 <strong>HarmonyMusicApp</strong></span>
+<span class="badge">风格 <strong>A + 深色播放页</strong></span>
+<span class="badge">登录 <strong>demo / 123456</strong></span>
+<span class="badge">卡片 <strong>动态 2×2</strong></span>
+<span class="badge">状态 <strong>待最终审核</strong></span>
+<span class="badge">业务源码未修改</span>
+</div>
+<div class="review"><h3>这版改了什么</h3><p>音频只在 MainAbility 初始化；通知目标改 Main；卡片走 EntryAbility 登录门禁并支持立即刷新 + 定时刷新；固定 demo 登录；播放页局部深色 token；历史统一记录；新增无版权本地示例；补齐品牌资源、验收矩阵和“每阶段提交推送”的 Git 流程。</p><div class="actions"><a class="primary" href="UI调研与风格选择.html">打开 UI 调研与风格图</a><a href="方案审阅报告.md">打开审阅报告</a><a href="#s10">看最后确认事项</a></div></div>
+</div></header>
+<div class="wrap layout">
+<nav class="toc"><div class="label">CONTENTS</div><a href="#s1">0. 已确认的决策</a>
+<a href="#s2">1. 目标与范围</a>
+<a href="#s3">2. 课程要求映射</a>
+<a href="#s4">3. 视觉与页面规格</a>
+<a href="#s5">4. 技术设计</a>
+<a href="#s6">5. 测试与验收</a>
+<a href="#s7">6. 实施顺序与时间</a>
+<a href="#s8">7. 答辩讲解主线</a>
+<a href="#s9">8. 风险与应对</a>
+<a href="#s10">9. 尚需你最后确认</a>
+<a href="#s11">10. 参考来源</a></nav>
+<main class="paper"><h1>鸿蒙音乐 App 二次开发方案</h1>
+<p><strong>项目基础：</strong> <code>wyyhm6</code>（在线音乐播放器，ArkTS + ArkUI + AVPlayer + 网络 API）<br />
+<strong>工程/仓库：</strong> <code>HarmonyMusicApp</code>（GitHub 私有仓库，账号 <code>blowt16</code>）<br />
+<strong>应用显示名：</strong> 清听<br />
+<strong>参考项目：</strong> <code>HarmonyPulse</code>（重点参考多 Ability、持久化和工程化思路）<br />
+<strong>课程要求：</strong> <code>课程设计要求.txt</code><br />
+<strong>文档版本：</strong> v1.1 审核稿（已纳入 2026-10-24 决策，等待最终审核；未执行）<br />
+<strong>已选风格：</strong> A 原生清透 + 播放页固定深色沉浸<br />
+<strong>配套材料：</strong> <code>UI调研与风格选择.html</code>、<code>方案审阅报告.md</code></p>
+<blockquote>
+<p>当前状态：调研、设计和方案已完成；<strong>没有修改 wyyhm6 的业务源码</strong>。本文件通过后才进入 Phase 0。</p>
+</blockquote>
+<hr />
+<h2 id="s1">0. 已确认的决策</h2>
+<table>
+<thead>
+<tr>
+  <th>决策</th>
+  <th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>视觉</td>
+  <td>A 原生清透主界面 + 播放页固定深色沉浸</td>
+</tr>
+<tr>
+  <td>服务卡片</td>
+  <td><strong>动态刷新</strong>，2×2</td>
+</tr>
+<tr>
+  <td>登录规则</td>
+  <td><strong>固定账号 <code>demo / 123456</code></strong></td>
+</tr>
+<tr>
+  <td>多 Ability</td>
+  <td><strong>做</strong>：<code>EntryAbility</code>（欢迎/登录）+ <code>MainAbility</code>（主界面/播放）</td>
+</tr>
+<tr>
+  <td>断网音源</td>
+  <td><strong>加入一首本地示例音频</strong>，可在无网络时播放</td>
+</tr>
+<tr>
+  <td>后台数据库</td>
+  <td>不做；保留网络 API + 多 Ability 两项加分</td>
+</tr>
+<tr>
+  <td>演示环境</td>
+  <td>模拟器；未签名 HAP 本机实测可安装；真机才需要签名</td>
+</tr>
+</tbody>
+</table>
+<p>其余推荐默认：工程/仓库名 <code>HarmonyMusicApp</code>、应用显示名“清听”、包名 <code>com.example.harmonymusicapp</code>、主界面固定浅色、播放页固定深色、移除顶部主题/背景/搜索菜单、<code>SearchPage.ets</code> 移出路由并清理、背景图片功能收进设置（时间紧可隐藏入口）。</p>
+<hr />
+<h2 id="s2">1. 目标与范围</h2>
+<p>以 wyyhm6 为底，补齐课程硬性页面和产品闭环：</p>
+<ul>
+<li>4 个 Tab：首页 / 搜索 / 收藏 / 我的；</li>
+<li>欢迎页、固定 demo 登录、登录态持久化；</li>
+<li>收藏、最近播放、个人中心、设置；</li>
+<li>深色沉浸播放页；</li>
+<li>动态 2×2 服务卡片；</li>
+<li>网络 API + 本地示例音源兜底；</li>
+<li>改名、换图标、服务卡片、构建可演示。</li>
+</ul>
+<p><strong>不做：</strong> 真实账号系统、后台数据库、评论/社交/直播/会员、播放器底层重写、全局暗色主题。</p>
+<hr />
+<h2 id="s3">2. 课程要求映射</h2>
+<table>
+<thead>
+<tr>
+  <th>课程要求</th>
+  <th>本方案落点</th>
+  <th>验收证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>至少 4 个 Tab</td>
+  <td>首页 / 搜索 / 收藏 / 我的</td>
+  <td>四个 Tab 切换截图</td>
+</tr>
+<tr>
+  <td>欢迎页</td>
+  <td><code>WelcomePage</code>，1.5 秒进入登录或主页</td>
+  <td>冷启动录屏</td>
+</tr>
+<tr>
+  <td>登录页</td>
+  <td><code>LoginPage</code>，固定 <code>demo/123456</code></td>
+  <td>正确/错误登录截图</td>
+</tr>
+<tr>
+  <td>首页</td>
+  <td>推荐首页：问候、搜索入口、精选大图、推荐列表</td>
+  <td>首页截图</td>
+</tr>
+<tr>
+  <td>列表页</td>
+  <td>搜索结果、收藏、最近播放、歌单详情</td>
+  <td>列表截图</td>
+</tr>
+<tr>
+  <td>详情页</td>
+  <td><code>PlayPage</code> 播放详情 + <code>SongListPage</code> 歌单详情</td>
+  <td>播放/歌单截图</td>
+</tr>
+<tr>
+  <td>我的页面</td>
+  <td>头像、昵称、收藏/历史统计、设置、退出</td>
+  <td>我的页截图</td>
+</tr>
+<tr>
+  <td>界面美观、色彩统一</td>
+  <td>A 原生清透，单一主强调色</td>
+  <td>4 Tab + 播放页截图</td>
+</tr>
+<tr>
+  <td>修改图标和名称</td>
+  <td>“清听”+ 新图标 + 启动图 + 卡片名</td>
+  <td>桌面/卡片截图</td>
+</tr>
+<tr>
+  <td>服务卡片</td>
+  <td>动态 2×2 卡片，显示最近播放，点击拉起 App</td>
+  <td>添加、更新、点击录屏</td>
+</tr>
+<tr>
+  <td>数据</td>
+  <td>网络 API + Preferences + 本地示例音频</td>
+  <td>断网播放本地示例</td>
+</tr>
+<tr>
+  <td>多 Ability（加分）</td>
+  <td>EntryAbility + MainAbility</td>
+  <td>登录跳转链路录屏</td>
+</tr>
+<tr>
+  <td>网络 API（加分）</td>
+  <td>搜索、推荐、歌单、歌词</td>
+  <td>现场搜索并播放</td>
+</tr>
+<tr>
+  <td>后台数据库（加分）</td>
+  <td>不做</td>
+  <td>报告中说明取舍</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="s4">3. 视觉与页面规格</h2>
+<p>完整调研和四种风格板见 <code>UI调研与风格选择.html</code>。执行时按本节为准。</p>
+<h3>3.1 A 方案 token（浅色主界面）</h3>
+<table>
+<thead>
+<tr>
+  <th>Token</th>
+  <th>值</th>
+  <th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>页面背景</td>
+  <td><code>#F7F6F2</code></td>
+  <td>全局暖白</td>
+</tr>
+<tr>
+  <td>卡片</td>
+  <td><code>#FFFFFF</code></td>
+  <td>主卡、列表容器</td>
+</tr>
+<tr>
+  <td>主文字</td>
+  <td><code>#17181A</code></td>
+  <td>标题、歌名</td>
+</tr>
+<tr>
+  <td>次文字</td>
+  <td><code>#6B6F76</code></td>
+  <td>歌手、说明</td>
+</tr>
+<tr>
+  <td>主强调色</td>
+  <td><code>#C8424C</code></td>
+  <td>按钮、选中 Tab、正文强调；白字对比 4.84:1</td>
+</tr>
+<tr>
+  <td>装饰强调色</td>
+  <td><code>#E4575F</code></td>
+  <td>大色块、图标、非文字装饰；不承白字正文</td>
+</tr>
+<tr>
+  <td>强调浅底</td>
+  <td><code>#FDEBED</code></td>
+  <td>标签、选中背景</td>
+</tr>
+<tr>
+  <td>分割线</td>
+  <td><code>#ECE8E0</code></td>
+  <td>列表分割</td>
+</tr>
+<tr>
+  <td>卡片圆角</td>
+  <td>20vp</td>
+  <td>主卡</td>
+</tr>
+<tr>
+  <td>封面圆角</td>
+  <td>14vp</td>
+  <td>歌曲/歌单封面</td>
+</tr>
+<tr>
+  <td>页面留白</td>
+  <td>左右 20vp</td>
+  <td>全局</td>
+</tr>
+<tr>
+  <td>触控目标</td>
+  <td>≥48vp，间距 ≥8vp</td>
+  <td>所有可点元素</td>
+</tr>
+</tbody>
+</table>
+<p>字体使用系统 <code>HarmonyOS Sans SC</code>：大标题 30–34vp Bold；section 20–22vp Bold；正文 15–16vp；辅助 12–13vp；行高 1.4–1.6。</p>
+<h3>3.2 四个 Tab 与顶部</h3>
+<ul>
+<li>Tab：首页（house/house_fill）、搜索（magnifyingglass）、收藏（heart/heart_fill）、我的（person/person_fill）。</li>
+<li>选中色 <code>#C8424C</code>，未选中 <code>#6B6F76</code>；HdsTabs 使用 <code>BottomTabBarStyle.labelStyle({selectedColor, unselectedColor})</code>，图标用 SymbolGlyphModifier 设色；若 Hds 系统材质覆盖颜色，改用自定义 tabBar builder。</li>
+<li>底部导航 64vp，悬浮在安全区上方；mini player 在其上方，不遮挡列表最后一项（底部留白 110–120vp）。</li>
+<li>顶部标题栏只保留“清听”标题和必要的设置入口；移除搜索菜单（已有 Tab）、移除主题开关（主界面固定浅色）、背景入口移到设置。</li>
+</ul>
+<h3>3.3 页面级规格</h3>
+<p><strong>欢迎页：</strong> 暖白背景 + 淡珊瑚光晕；中央 96vp 品牌标记；“清听”36vp，“听见每一天”14vp；1.5 秒自动前进，提供“立即进入”；无 Tab/返回。</p>
+<p><strong>登录页：</strong> 上半部珊瑚渐变装饰区，下半部白色面板；账号/密码输入框 52vp，圆角 16vp；登录按钮 52vp；错误提示在输入框下方；页面直接显示“演示账号 demo / 123456”；协议勾选未勾选时不提交；键盘弹出可滚动。</p>
+<p><strong>首页：</strong> 问候 + 标题 + 搜索胶囊；16:9 精选主卡（封面 + 深色渐变遮罩 + 白字 + 珊瑚播放按钮）；“为你推荐 / 最近播放 / 精选歌单”三段；横向卡片 150vp；底部留白 120vp。网络失败时增加“当前展示本地精选”提示。</p>
+<p><strong>搜索：</strong> 胶囊输入框 + 搜索按钮；历史 chips；结果行 64vp，封面 48vp；当前播放歌曲用珊瑚色；加载更多失败保留已加载内容；空态/断网态分开。</p>
+<p><strong>收藏：</strong> 顶部“收藏”；“收藏 / 最近播放”两个 segment；列表使用统一歌曲行；空态给“去搜索一首喜欢的歌”；只提供播放和清空历史，不做每行更多菜单。</p>
+<p><strong>我的：</strong> 个人卡（64vp 头像、昵称、已登录/本地演示账号）；收藏数、最近播放数；一个“设置”入口 + 一个“退出登录”；不在个人卡里重复退出按钮；背景/主题设置收进设置页。</p>
+<p><strong>播放页（固定深色）：</strong> 见 4.6。</p>
+<p><strong>歌单详情：</strong> 封面 160vp + 歌单名 + 歌曲数；全部播放/随机播放；歌曲列表；底部留白 120vp。</p>
+<p><strong>服务卡片：</strong> 见 4.4。</p>
+<h3>3.4 状态与无障碍</h3>
+<ul>
+<li>加载：列表底部进度，不整页遮罩。</li>
+<li>空态：图标 + 说明 + 可执行动作（重试/去搜索）。</li>
+<li>错误：区分“无结果”“网络失败”“无播放地址”。</li>
+<li>按压：0.98 缩放或背景变化；请求中主按钮禁用。</li>
+<li>图标按钮加 <code>accessibilityText</code>；可点目标 ≥48vp；正文对比 ≥4.5:1。</li>
+</ul>
+<hr />
+<h2 id="s5">4. 技术设计</h2>
+<h3>4.1 Ability 与音频所有权</h3>
+<pre><code class="language-text">EntryAbility（欢迎/登录）
+  WelcomePage → LoginPage → 校验 demo/123456 → startAbility(MainAbility) → terminateSelf
+                                   │
+                                   ▼
+MainAbility（主界面/播放，singleton）
+  Index（4 Tab）
+    ├─ 首页 / 搜索 ── ApiService
+    ├─ 收藏 / 我的 ── StorageService
+    └─ PlayPage ── PlayerService ── AVPlayer
+  WidgetService（更新卡片）
+  AudioSessionService（通知/后台播控）
+
+FormExtensionAbility
+  MusicFormAbility ── 动态 2×2 卡片
+</code></pre>
+<p><strong>EntryAbility</strong></p>
+<ul>
+<li>只加载 <code>WelcomePage</code>/<code>LoginPage</code>，<strong>不初始化、也不销毁音频服务</strong>。</li>
+<li>欢迎页 1.5 秒后检查 <code>Preferences</code>：已登录 → 启动 <code>MainAbility</code>；未登录 → 登录页。</li>
+<li>登录成功：保存 <code>isLoggedIn=true</code>、<code>nickname=demo</code>（不保存密码）；<code>startAbility</code> 成功后才 <code>terminateSelf()</code>；失败则停留并提示。</li>
+<li>启动 Main 后结束自身，建议配置 <code>removeMissionAfterTerminate</code>，避免返回键回到欢迎页。</li>
+<li>欢迎页定时器在 <code>aboutToDisappear</code> 中清理。</li>
+<li><code>EntryAbility</code> 不再声明 <code>audioPlayback</code> 后台模式。</li>
+</ul>
+<p><strong>MainAbility</strong></p>
+<ul>
+<li>新文件，承接原 EntryAbility 的窗口、主题、AudioSession、ImageCache 初始化，并加载 <code>Index</code>。</li>
+<li><code>launchType: singleton</code>；处理 <code>onNewWant</code>（来自通知点击等情况）。</li>
+<li><code>exported</code> 设为 true 以便通知/卡片显式拉起，但 <code>onCreate</code> 先检查登录态：未登录就启动 EntryAbility 登录页并结束自己，防止绕过登录。</li>
+<li><code>onDestroy</code> 停止播放、停止后台任务、释放 AVSession/AVPlayer。</li>
+</ul>
+<p><strong>通知栏</strong></p>
+<ul>
+<li><code>AudioSessionService.createWantAgent()</code> 目前写死 <code>EntryAbility</code>，改为 <code>MainAbility</code>；否则登录后点通知会回到登录页。</li>
+<li><code>module.json5</code> 把 <code>backgroundModes: [&quot;audioPlayback&quot;]</code> 从 EntryAbility 移到 MainAbility。</li>
+<li><code>KEEP_BACKGROUND_RUNNING</code>、<code>INTERNET</code> 的 <code>usedScene.abilities</code> 增加/改为 <code>MainAbility</code>。</li>
+</ul>
+<p><strong>退出登录</strong></p>
+<ul>
+<li>停止播放、停止后台任务、释放音频会话；</li>
+<li>清除 <code>isLoggedIn</code>/<code>nickname</code>；</li>
+<li>显式启动 EntryAbility 的登录入口（带 <code>showLogin=true</code> 参数，跳过欢迎页）；</li>
+<li>结束 MainAbility。</li>
+</ul>
+<h3>4.2 四个 Tab、状态刷新、历史</h3>
+<ul>
+<li>在 <code>Index.ets</code> 增加第 4 个 <code>TabContent</code>，把原“我的”里的收藏/历史拆成 <code>FavoritesView</code>。</li>
+<li><code>ProfileView</code> 改成个人中心；<code>SettingsPage</code> 从“我的”进入。</li>
+<li>Tab 切换、<code>onPageShow</code>（从播放页返回）时重新读取收藏/历史并刷新统计。</li>
+<li>收藏 Tab 显示收藏/最近播放两个 segment；不新增数据库。</li>
+<li><strong>播放历史统一在 <code>PlayerService</code> 内记录</strong>：在歌曲成功起播时写一次 <code>StorageService.addPlayHistory</code>，覆盖首页、歌单、搜索、播放页、上一首/下一首；避免 Index/SongListPage/PlayPage 各写一遍且漏写。</li>
+<li>播放器服务需要拿到 StorageService 的 context；在 MainAbility 初始化时注入/设置。</li>
+<li><code>SearchPage.ets</code> 没有任何路由引用，移出 <code>main_pages.json</code> 并删除；搜索只保留 Index 内的 SearchTab。</li>
+<li>移除顶部搜索/主题/背景菜单；背景功能收进 Settings（默认关闭，时间紧可隐藏入口）。</li>
+</ul>
+<h3>4.3 固定 demo 登录</h3>
+<ul>
+<li><code>AuthService</code>：<ul>
+<li><code>validate(username, password)</code>：空账号、空密码、账号/密码错误分别返回明确错误；只有 <code>demo</code> + <code>123456</code> 通过。</li>
+<li><code>login</code>：成功后只保存 <code>isLoggedIn=true</code> 与 <code>nickname=demo</code>，<strong>不保存密码</strong>。</li>
+<li><code>logout</code>：清除登录态。</li>
+</ul>
+</li>
+<li>登录页显示演示账号，协议勾选；错误文案在对应输入框下方。</li>
+<li>本地单元测试覆盖：空账号、空密码、错误账号、错误密码、正确账号。</li>
+<li>这是课程演示登录，不连接真实认证，不传输密码；报告里写明。</li>
+</ul>
+<h3>4.4 动态服务卡片</h3>
+<p><strong>目标：</strong> 2×2 卡片显示“继续听”或“发现好音乐”，并在播放/刷新后更新；点击进入 App，未登录先登录。</p>
+<p><strong>实现</strong></p>
+<ul>
+<li>新增 <code>MusicFormAbility</code>（FormExtensionAbility）和 <code>MusicWidgetCard.ets</code>。</li>
+<li><code>form_config.json</code>：2×2、ArkTS UI、<code>updateEnabled: true</code>，按 SDK 模板设置 <code>updateDuration</code>/<code>scheduledUpdateTime</code>，目标 30 分钟；具体字段以 SDK 模板和模拟器实测为准。</li>
+<li>数据源：<strong>本地 Preferences 的最近播放</strong>，不依赖网络。<ul>
+<li>有历史：标题=最近歌曲名，副标题=歌手，状态=“继续听”；</li>
+<li>无历史：标题=“今天想听什么？”，副标题=“打开清听”，状态=“发现好音乐”。</li>
+</ul>
+</li>
+<li>封面：使用本地渐变色/本地图标，不加载远程封面，保证离线可用。</li>
+<li>刷新链路：<ol>
+<li><code>onAddForm</code> 读取数据并保存 <code>formId</code>；</li>
+<li><code>onUpdateForm</code> 读取最新最近播放；</li>
+<li>系统定时刷新（按配置，约 30 分钟）；</li>
+<li>App 内播放歌曲变化/回到前台时，<code>WidgetService.refreshAll()</code> 读取 formId 并调用 <code>formProvider.updateForm</code>，实现立即更新；</li>
+<li><code>onRemoveForm</code> 清理 formId。</li>
+</ol>
+</li>
+<li>点击：<code>postCardAction</code> 以 router 方式拉起 <code>EntryAbility</code>；Entry 检查登录态，未登录进登录页，已登录直接进 Main。</li>
+<li>验收：<ul>
+<li>桌面添加卡片，显示正确初始状态；</li>
+<li>播放本地示例或在线歌曲，回到桌面，卡片显示最近歌曲；</li>
+<li>等待定时刷新，卡片仍能更新；</li>
+<li>点击卡片能进入 App / 登录页。</li>
+</ul>
+</li>
+</ul>
+<h3>4.5 本地示例音频（断网保底）</h3>
+<ul>
+<li>新增 <code>entry/src/main/resources/rawfile/demo_loop.wav</code>，约 20–30 秒，<strong>项目自行生成的无版权环境循环</strong>；不依赖第三方音乐。</li>
+<li><code>Song</code> 增加可选字段 <code>assetName?: string</code>；新增一条 <code>MockData.LOCAL_DEMO_SONG</code>：<ul>
+<li><code>id: -1</code>、名称“清听 · 示例曲”、歌手“清听”、专辑“本地示例”、<code>assetName: 'demo_loop.wav'</code>、<code>url: ''</code>。</li>
+</ul>
+</li>
+<li><code>PlayerService.playSong</code> 增加本地分支：<ul>
+<li>若 <code>song.assetName</code> 存在：通过 <code>resourceManager.getRawFd(assetName)</code> 获取 fd，设置 <code>avPlayer.fdSrc = { fd, offset, length }</code>；</li>
+<li>不请求 API、不请求歌词；歌词页显示“示例音频，无歌词”；</li>
+<li>切歌/停止时关闭旧 fd，避免资源泄漏；</li>
+<li>本地歌曲也写入播放历史，使卡片和“最近播放”有内容。</li>
+</ul>
+</li>
+<li>本地示例出现在：<ul>
+<li>首页“本地精选”/离线兜底列表；</li>
+<li>搜索兜底数据；</li>
+<li>设置页的“播放本地示例”入口（方便答辩演示）。</li>
+</ul>
+</li>
+<li>UI 标识“本地示例”，避免误认为是第三方版权音乐。</li>
+<li>README/报告记录：该音频由项目生成，无第三方版权；不使用旧 <code>讲解视频.mp4</code> 或第三方音频。</li>
+</ul>
+<h3>4.6 深色播放页</h3>
+<p>固定深色，不跟全局主题；主界面保持浅色。</p>
+<ul>
+<li>新增页面级 token（放 AppStorage，仅播放页生效）：<ul>
+<li><code>playerBg #0B0C10</code></li>
+<li><code>playerSurface #1A1A20</code></li>
+<li><code>playerText #F5F5F7</code></li>
+<li><code>playerMuted #C9C7D0</code></li>
+<li><code>playerAccent #FF6B72</code></li>
+</ul>
+</li>
+<li><code>PlayPage.aboutToAppear</code> 设置这些 token；<code>aboutToDisappear</code> 恢复浅色值。不要让全局 <code>ThemeManager</code> 变暗。</li>
+<li>背景：当前封面放大 + 模糊 + 深色遮罩（<code>#0B0C10</code> 65–80%）；无封面时用深色渐变。</li>
+<li><code>PlayerControls</code>、<code>LyricView</code>、音质弹层、播放列表弹层改为读取 <code>player*</code> token（或通过 props 传入深色 palette）；歌词在深色下使用 <code>#C9C7D0</code>，当前行 <code>#FF6B72</code>。</li>
+<li>HdsNavigation 标题/菜单：使用深色模式或自定义顶栏；状态栏内容切白，退出播放页恢复；系统导航栏也切深色。</li>
+<li>主按钮使用 <code>#FF6B72</code>；白字在主色按钮上用更深的 <code>#C8424C</code>（浅色页面）或深色页专用色，保证对比。</li>
+<li>验收：浅色主界面进入播放页后，标题、歌词、时间、控制、弹层、状态栏都清晰可读；返回首页恢复浅色。</li>
+</ul>
+<h3>4.7 网络、缓存与错误处理</h3>
+<ul>
+<li><code>ApiService</code> 增加连接/读取超时（建议 8–10 秒），不要无限等待。</li>
+<li>错误分类：无结果 / 网络失败 / 服务返回异常；UI 分别显示重试、空态、提示。</li>
+<li><code>loadMore</code> 只有请求成功后才增加页码；失败保留已有结果。</li>
+<li>播放地址为空或 AVPlayer error：由 <code>PlayerService</code> 暴露错误事件/返回状态，页面 toast + 可换歌/重试，不静默停住。</li>
+<li>保留 <code>CacheService</code> TTL；网络失败时展示 <code>MockData</code> 本地精选（其中本地示例可播放，其余仅展示信息）。</li>
+<li>首页加载失败不能一直 loading；设置超时和兜底数据。</li>
+<li>图片加载失败用本地渐变色占位。</li>
+</ul>
+<h3>4.8 品牌与资源</h3>
+<ul>
+<li>工程/仓库名：HarmonyMusicApp；应用显示名：清听；包名：<code>com.example.harmonymusicapp</code>。</li>
+<li>同时替换：<ul>
+<li><code>AppScope/resources/base/media</code>：layered_image、foreground、background；</li>
+<li><code>entry/src/main/resources/base/media</code>：startIcon、foreground、background；</li>
+<li><code>AppScope/resources/base/element/string.json</code> 与 <code>entry/.../string.json</code> 的两处 label；</li>
+<li>启动窗口背景色、服务卡片名称。</li>
+</ul>
+</li>
+<li>图标：珊瑚渐变底 + 白色声波/音符；生成 108×108 分层资源和 200×200 启动图；无第三方素材。</li>
+<li>清理旧字符串：<code>PhiLia</code>、<code>网易云音乐</code>、旧权限说明。</li>
+<li>旧根目录 <code>entry-default-signed.hap</code> 不参与提交。</li>
+</ul>
+<h3>4.9 文件变更清单</h3>
+<table>
+<thead>
+<tr>
+  <th>文件/目录</th>
+  <th>动作</th>
+  <th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>AppScope/app.json5</code></td>
+  <td>修改</td>
+  <td>bundleName <code>com.example.harmonymusicapp</code></td>
+</tr>
+<tr>
+  <td><code>AppScope/resources/base/element/string.json</code></td>
+  <td>修改</td>
+  <td>app_name 清听</td>
+</tr>
+<tr>
+  <td><code>AppScope/resources/base/media/*</code></td>
+  <td>替换</td>
+  <td>分层图标资源</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/resources/base/element/string.json</code></td>
+  <td>修改</td>
+  <td>Ability、卡片、权限文案</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/resources/base/media/*</code></td>
+  <td>替换</td>
+  <td>startIcon/foreground/background</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/resources/rawfile/demo_loop.wav</code></td>
+  <td>新增</td>
+  <td>本地示例音频</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/module.json5</code></td>
+  <td>修改</td>
+  <td>MainAbility、FormExtensionAbility、权限/backgroundModes、卡片元数据</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/resources/base/profile/main_pages.json</code></td>
+  <td>修改</td>
+  <td>增 Welcome/Login，移除 SearchPage</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/resources/base/profile/form_config.json</code></td>
+  <td>新增</td>
+  <td>2×2 动态卡片配置</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/entryability/EntryAbility.ets</code></td>
+  <td>重构</td>
+  <td>只做欢迎/登录；无音频</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/mainability/MainAbility.ets</code></td>
+  <td>新增</td>
+  <td>主界面/播放初始化、登录门禁、onNewWant</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/WelcomePage.ets</code></td>
+  <td>新增</td>
+  <td>欢迎页 + 定时器</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/LoginPage.ets</code></td>
+  <td>新增</td>
+  <td>固定 demo 登录</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/AuthService.ets</code></td>
+  <td>新增</td>
+  <td>登录校验/Prefs 登录态</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/MockData.ets</code></td>
+  <td>新增</td>
+  <td>本地示例 + 离线精选</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/WidgetService.ets</code></td>
+  <td>新增</td>
+  <td>读取 formId、更新卡片</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/formability/MusicFormAbility.ets</code></td>
+  <td>新增</td>
+  <td>卡片生命周期</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/widget/MusicWidgetCard.ets</code></td>
+  <td>新增</td>
+  <td>2×2 卡片 UI</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/Index.ets</code></td>
+  <td>修改</td>
+  <td>4 Tab、收藏/我的拆分、刷新、去掉顶部多余菜单</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/views/FavoritesView.ets</code></td>
+  <td>新增</td>
+  <td>收藏/最近播放</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/views/ProfileView.ets</code></td>
+  <td>新增</td>
+  <td>个人中心</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/PlayPage.ets</code></td>
+  <td>修改</td>
+  <td>深色页面、局部 token、状态栏</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/components/PlayerControls.ets</code></td>
+  <td>修改</td>
+  <td>深色 palette</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/components/LyricView.ets</code></td>
+  <td>修改</td>
+  <td>深色歌词颜色</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/components/EmptyState.ets</code></td>
+  <td>新增</td>
+  <td>空态/错误态</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/SettingsPage.ets</code></td>
+  <td>修改</td>
+  <td>设置分组、本地示例入口、背景设置</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/pages/SearchPage.ets</code></td>
+  <td>删除</td>
+  <td>无路由的重复页</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/PlayerService.ets</code></td>
+  <td>修改</td>
+  <td>本地音频分支、统一历史、错误事件</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/ApiService.ets</code></td>
+  <td>修改</td>
+  <td>超时、错误分类、分页</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/AudioSessionService.ets</code></td>
+  <td>修改</td>
+  <td>WantAgent 指向 MainAbility</td>
+</tr>
+<tr>
+  <td><code>entry/src/main/ets/services/StorageService.ets</code></td>
+  <td>微调</td>
+  <td>最近播放/收藏读取、卡片数据</td>
+</tr>
+<tr>
+  <td><code>entry/src/test/AuthService.test.ets</code></td>
+  <td>新增</td>
+  <td>固定账号校验</td>
+</tr>
+<tr>
+  <td><code>entry/src/test/List.test.ets</code></td>
+  <td>修改</td>
+  <td>注册新测试</td>
+</tr>
+<tr>
+  <td><code>README.md</code></td>
+  <td>修改</td>
+  <td>真实功能、API、构建、示例音频许可、截图</td>
+</tr>
+</tbody>
+</table>
+<p><strong>明确不改：</strong> 播放器核心 AVPlayer 状态机（只加本地 fdSrc 分支、错误事件和历史记录）、AudioSession 的媒体控制逻辑（只改通知入口）、LyricView 的滚动算法（只改颜色）。</p>
+<hr />
+<h2 id="s6">5. 测试与验收</h2>
+<h3>5.1 构建与安装</h3>
+<ul>
+<li>工程放纯英文路径 <code>D:\HarmonyProject\HarmonyMusicApp</code>。</li>
+<li>模拟器未签名 HAP 已实测可安装；真机/正式安装需要签名。</li>
+<li>使用本机 SDK 26 构建，产物 <code>entry/build/default/outputs/default/entry-default-unsigned.hap</code>。</li>
+<li>安装/启动：<code>hdc install -r ...</code>、<code>hdc shell aa start -a EntryAbility -b com.example.harmonymusicapp</code>。</li>
+</ul>
+<h3>5.2 验收矩阵</h3>
+<table>
+<thead>
+<tr>
+  <th>编号</th>
+  <th>验证项</th>
+  <th>通过标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>T01</td>
+  <td>冷启动</td>
+  <td>欢迎页出现，1.5 秒后按登录态进入</td>
+</tr>
+<tr>
+  <td>T02</td>
+  <td>登录正确</td>
+  <td>demo/123456 成功进入主界面</td>
+</tr>
+<tr>
+  <td>T03</td>
+  <td>登录错误</td>
+  <td>空值/错误账号/错误密码有对应提示，不崩溃</td>
+</tr>
+<tr>
+  <td>T04</td>
+  <td>登录记忆</td>
+  <td>杀进程再启动，已登录直接进主界面</td>
+</tr>
+<tr>
+  <td>T05</td>
+  <td>退出登录</td>
+  <td>停播、清登录态、回到登录页</td>
+</tr>
+<tr>
+  <td>T06</td>
+  <td>4 Tab</td>
+  <td>首页/搜索/收藏/我的切换正常</td>
+</tr>
+<tr>
+  <td>T07</td>
+  <td>首页</td>
+  <td>推荐内容、本地示例、空/错态正常</td>
+</tr>
+<tr>
+  <td>T08</td>
+  <td>搜索</td>
+  <td>成功、加载更多、空、断网、失败重试</td>
+</tr>
+<tr>
+  <td>T09</td>
+  <td>收藏/历史</td>
+  <td>所有播放入口都写入历史；切换 Tab/返回后刷新</td>
+</tr>
+<tr>
+  <td>T10</td>
+  <td>播放</td>
+  <td>播放/暂停/上一首/下一首/进度拖动正常</td>
+</tr>
+<tr>
+  <td>T11</td>
+  <td>深色播放页</td>
+  <td>标题、歌词、控制、弹层、状态栏全部可读</td>
+</tr>
+<tr>
+  <td>T12</td>
+  <td>本地示例</td>
+  <td>断网时仍能播放示例音频，歌词提示无歌词</td>
+</tr>
+<tr>
+  <td>T13</td>
+  <td>服务卡片-添加</td>
+  <td>桌面添加 2×2 卡片，显示最近播放或“发现好音乐”</td>
+</tr>
+<tr>
+  <td>T14</td>
+  <td>服务卡片-动态</td>
+  <td>播放歌曲后卡片更新；定时刷新仍能更新</td>
+</tr>
+<tr>
+  <td>T15</td>
+  <td>服务卡片-点击</td>
+  <td>点击拉起 App；未登录先登录</td>
+</tr>
+<tr>
+  <td>T16</td>
+  <td>通知/后台</td>
+  <td>通知栏点回 MainAbility，后台播放正常</td>
+</tr>
+<tr>
+  <td>T17</td>
+  <td>品牌</td>
+  <td>桌面、启动图、标题、卡片名称一致</td>
+</tr>
+<tr>
+  <td>T18</td>
+  <td>多 Ability</td>
+  <td>Entry→Main 链路可复现；未登录不能直接进 Main</td>
+</tr>
+<tr>
+  <td>T19</td>
+  <td>API 异常</td>
+  <td>超时、断网、空 URL 有提示和重试，不白屏</td>
+</tr>
+</tbody>
+</table>
+<h3>5.3 测试方法</h3>
+<ul>
+<li>本地单元测试：AuthService 固定账号校验；注册到 <code>entry/src/test/List.test.ets</code>。</li>
+<li>模拟器回归：登录/登出、4 Tab、播放、深色页、历史、API 异常。</li>
+<li>服务卡片：在模拟器桌面添加卡片，验证初始/播放后/定时刷新/点击。</li>
+<li>断网：关闭网络，验证本地示例可播放、在线内容显示兜底提示。</li>
+<li>截图证据：每个必做页面、卡片、深色播放页、错误态各一张；从 Phase 1 开始积累。</li>
+</ul>
+<h3>5.4 GitHub 仓库与阶段提交</h3>
+<p><strong>仓库：</strong> <code>https://github.com/blowt16/HarmonyMusicApp</code>（私有，工程目录 <code>D:\HarmonyProject\HarmonyMusicApp</code>）。</p>
+<p><strong>分支：</strong></p>
+<ul>
+<li><code>main</code>：导入基线 + 最终可提交版本；</li>
+<li><code>dev</code>：日常开发分支；每个阶段在 <code>dev</code> 提交并推送；全部完成后再合并回 <code>main</code>。</li>
+<li>保留 <code>upstream</code> 指向 <code>Hanmiao33/wyyhm6</code>，仅用于追溯来源，不向 upstream 推送。</li>
+</ul>
+<p><strong>阶段提交（每个阶段先构建/验收，再提交）：</strong></p>
+<table>
+<thead>
+<tr>
+  <th>阶段</th>
+  <th>提交信息</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>基线</td>
+  <td><code>[chore] 导入 wyyhm6 基线并加入项目文档</code></td>
+</tr>
+<tr>
+  <td>Phase 0</td>
+  <td><code>[chore] 配置 HarmonyMusicApp 品牌、图标与工程</code></td>
+</tr>
+<tr>
+  <td>Phase 1</td>
+  <td><code>[feat] 四个 Tab、收藏与个人中心</code></td>
+</tr>
+<tr>
+  <td>Phase 2</td>
+  <td><code>[feat] 欢迎页、固定 demo 登录与双 Ability</code></td>
+</tr>
+<tr>
+  <td>Phase 3</td>
+  <td><code>[feat] 动态 2×2 服务卡片</code></td>
+</tr>
+<tr>
+  <td>Phase 4</td>
+  <td><code>[feat] 深色播放页、本地示例音频与 API 兜底</code></td>
+</tr>
+<tr>
+  <td>Phase 5</td>
+  <td><code>[test/docs] 验收证据、报告与提交材料</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>规则：</strong></p>
+<ul>
+<li>提交前必须：构建成功 + 至少完成该阶段验收项 + 更新阶段说明。</li>
+<li>不提交：<code>oh_modules</code>、<code>build</code>、<code>.hvigor</code>、<code>.test</code>、<code>entry-default-signed.hap</code>、本机签名/密钥、临时截图和日志。</li>
+<li>提交并推送后，回报 commit hash、分支和本阶段修改概要。</li>
+<li>README/NOTICE 保留对 <code>wyyhm6</code>、<code>HarmonyPulse</code> 的参考说明，不把第三方基线宣称为原创。</li>
+</ul>
+<hr />
+<h2 id="s7">6. 实施顺序与时间</h2>
+<blockquote>
+<p>截止：2026-11-01 00:00 提交；11 月 1 日上午 431107 现场验收。<br />
+建议 <strong>10 月 30 日 18:00 功能冻结，10 月 31 日 18:00 前完成提交</strong>。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+  <th>阶段</th>
+  <th>内容</th>
+  <th>预计</th>
+  <th>Gate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Phase 0</td>
+  <td>英文路径、品牌资源、bundleName、README</td>
+  <td>0.5 天</td>
+  <td>构建成功 + 提交推送</td>
+</tr>
+<tr>
+  <td>Phase 1</td>
+  <td>4 Tab、收藏/我的、A 风格 token、历史刷新</td>
+  <td>1.5 天</td>
+  <td>截图给你看 + 提交推送</td>
+</tr>
+<tr>
+  <td>Phase 2</td>
+  <td>Welcome/Login、AuthService、Entry/Main Ability、权限/通知</td>
+  <td>1.5 天</td>
+  <td>登录/退出/播放回归 + 提交推送</td>
+</tr>
+<tr>
+  <td>Phase 3</td>
+  <td>动态服务卡片、WidgetService、卡片刷新</td>
+  <td>1 天</td>
+  <td>添加/更新/点击录屏 + 提交推送</td>
+</tr>
+<tr>
+  <td>Phase 4</td>
+  <td>深色播放页、局部 token、本地示例、API 超时/错误态</td>
+  <td>1.5 天</td>
+  <td>断网播放 + 深色页截图 + 提交推送</td>
+</tr>
+<tr>
+  <td>Phase 5</td>
+  <td>全量回归、报告、视频、提示词、AI 日志、提交</td>
+  <td>1 天</td>
+  <td>T01–T19 + 材料齐全 + 合并 main</td>
+</tr>
+</tbody>
+</table>
+<p><strong>时间不够时的取舍顺序：</strong> 背景功能 → 多 Ability → 卡片定时刷新（保留 App 内立即刷新）→ 视觉细节。<br />
+<strong>不能砍：</strong> 4 Tab、欢迎/登录、我的、服务卡片、本地示例、深色页可读性、网络 API 演示。</p>
+<hr />
+<h2 id="s8">7. 答辩讲解主线</h2>
+<ol>
+<li><strong>产品定位</strong>：基于 wyyhm6 的在线音乐播放器，保留播放核心，补齐完整页面与产品闭环。</li>
+<li><strong>我的改动</strong>：<ul>
+<li>4 Tab，新增收藏，重做个人中心；</li>
+<li>欢迎页 + 固定 demo 登录 + Preferences 登录记忆；</li>
+<li>EntryAbility + MainAbility 双 Ability；</li>
+<li>动态 2×2 服务卡片，显示最近播放；</li>
+<li>播放页固定深色，局部主题不污染主界面；</li>
+<li>断网本地示例 + API 失败兜底。</li>
+</ul>
+</li>
+<li><strong>数据流</strong>：搜索/推荐 → ApiService → 列表 → 点击 → PlayerService → AVPlayer；本地示例走 rawfile fdSrc。</li>
+<li><strong>取舍</strong>：不做后台数据库，保留网络 API + 多 Ability 两项加分。</li>
+<li><strong>演示顺序</strong>：欢迎 → 登录 → 首页 → 搜索 → 播放 → 收藏 → 我的 → 退出 → 桌面卡片 → 断网播放本地示例。</li>
+</ol>
+<p>常见追问：</p>
+<ul>
+<li>为什么两个 Ability？登录与主界面职责分离，登录结束自身，主界面负责播放；符合 Stage 模型/Want。</li>
+<li>登录是真的吗？固定演示账号，本地校验，不发送密码。</li>
+<li>卡片怎么动态？保存 formId，App 播歌后更新；系统定时刷新用最近播放兜底。</li>
+<li>断网怎么播放？本地示例音频走 rawfile fdSrc，不依赖 API。</li>
+<li>为什么不做后台数据库？时间/部署/演示风险；API + 多 Ability 更稳。</li>
+<li>哪些是你做的？4 Tab、登录、双 Ability、收藏/我的、动态卡片、深色页、本地示例、兜底和文档。</li>
+</ul>
+<hr />
+<h2 id="s9">8. 风险与应对</h2>
+<table>
+<thead>
+<tr>
+  <th>风险</th>
+  <th>应对</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>双 Ability 音频/通知异常</td>
+  <td>音频只在 Main 初始化；WantAgent 改 Main；Phase 2 先跑回归；失败退回单 Ability</td>
+</tr>
+<tr>
+  <td>卡片动态刷新复杂</td>
+  <td>先做 App 内立即刷新 + 定时刷新；早期在模拟器验证 form_config/formId</td>
+</tr>
+<tr>
+  <td>深色页组件串色</td>
+  <td>播放页局部 token；PlayerControls/LyricView 显式接收深色 palette；状态栏单独切换</td>
+</tr>
+<tr>
+  <td>网络 API 失效</td>
+  <td>超时、错误态、重试；本地示例可播放；演示曲目预测试</td>
+</tr>
+<tr>
+  <td>本地音频版权</td>
+  <td>使用项目生成的无版权示例，README 说明</td>
+</tr>
+<tr>
+  <td>历史/收藏不刷新</td>
+  <td>历史统一在 PlayerService；Tab 切换/onPageShow 重新读取</td>
+</tr>
+<tr>
+  <td>时间不足</td>
+  <td>10/30 冻结；按“不能砍”清单取舍；不追加 B/D 风格</td>
+</tr>
+<tr>
+  <td>旧材料误交</td>
+  <td>旧新闻提示词、旧视频不提交；重新生成/录制</td>
+</tr>
+<tr>
+  <td>真机签名</td>
+  <td>模拟器未签名已实测；真机需配置调试签名</td>
+</tr>
+<tr>
+  <td>Hds 选中色被覆盖</td>
+  <td>使用 labelStyle；不行就自定义 tabBar builder</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="s10">9. 尚需你最后确认</h2>
+<p>以下不阻塞，可按推荐默认执行：</p>
+<ol>
+<li>应用显示名是否继续使用“清听”；工程/仓库名 <code>HarmonyMusicApp</code> 和包名 <code>com.example.harmonymusicapp</code> 已确认。</li>
+<li>背景图片功能：默认收进设置、默认关闭；时间紧可直接隐藏入口。</li>
+<li>真机演示：默认用模拟器；如必须真机，需要配置调试签名。</li>
+<li>报告/视频：需要你本人参与讲解与录制；我会提供提纲和截图，但不替你出镜。</li>
+<li>AI 使用日志与代码生成提示词：按本次二开真实过程生成，不沿用旧的新闻 App 模板。</li>
+</ol>
+<p><strong>你回复“v1.1 通过”或指出修改点后，才开始 Phase 0。</strong> 在通过前不改业务源码。</p>
+<hr />
+<h2 id="s11">10. 参考来源</h2>
+<ul>
+<li>华为音乐 HarmonyOS NEXT：AI云资讯 2024-10；ZOL 转载。</li>
+<li>QQ 音乐鸿蒙版：ZOL 2025。</li>
+<li>网易云音乐：华为应用市场截图，2026-10。</li>
+<li>汽水音乐鸿蒙版：PConline 2026-03。</li>
+<li>酷狗音乐鸿蒙版：AI云资讯 2025-10。</li>
+<li>鸿蒙社区播放器：IT营 2024。</li>
+<li>原项目：<a href="https://github.com/Hanmiao33/wyyhm6">wyyhm6</a>；参考项目：<a href="https://github.com/ASweetBite/HarmonyPulse">HarmonyPulse</a>。</li>
+<li>UI 截图来源与版权说明：<code>UI调研与风格选择.html</code> 底部。</li>
+</ul>
+</main>
+</div>
+<footer><div class="wrap">v1.1 审核稿 · 当前未修改业务源码 · 通过后按 Phase 0→5 执行，每阶段完成后提交并推送 dev。</div></footer>
+</body></html>
