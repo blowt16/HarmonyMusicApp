@@ -2,14 +2,17 @@ import media from '@ohos.multimedia.media';
 import { Song, PlayMode, PlayerState, LyricLine, AudioQuality, SongQualityInfo } from '../models/MusicModel';
 import { ApiService } from './ApiService';
 import { AudioSessionService, MediaCallbacks } from './AudioSessionService';
+import { StorageService } from './StorageService';
 
 export class PlayerService {
   private static instance: PlayerService;
   private avPlayer: media.AVPlayer | null = null;
   private apiService: ApiService;
   private audioSessionService: AudioSessionService;
+  private storageService: StorageService;
 
   private currentSong: Song | null = null;
+  private historyRecorded: boolean = false;
   private playlist: Song[] = [];
   private currentIndex: number = -1;
   private playMode: PlayMode = PlayMode.SEQUENCE;
@@ -29,6 +32,7 @@ export class PlayerService {
   private constructor() {
     this.apiService = ApiService.getInstance();
     this.audioSessionService = AudioSessionService.getInstance();
+    this.storageService = StorageService.getInstance();
 
     // 注册媒体控制回调，使实况窗/通知栏的控制按钮能操控播放器
     const mediaCallbacks: MediaCallbacks = {
@@ -170,6 +174,7 @@ export class PlayerService {
         case 'playing':
           console.info('Player is now playing');
           this.playerState = PlayerState.PLAYING;
+          this.recordHistoryIfNeeded();
           this.notifyStateChange(this.playerState);
           this.audioSessionService.updatePlaybackState(this.playerState, this.currentPosition, this.duration);
           break;
@@ -208,6 +213,15 @@ export class PlayerService {
     console.info('initPlayer() completed');
   }
 
+  // 播放历史统一在这里记录，覆盖首页、歌单、搜索、播放页与上一首/下一首
+  private recordHistoryIfNeeded(): void {
+    if (this.historyRecorded || !this.currentSong) {
+      return;
+    }
+    this.historyRecorded = true;
+    this.storageService.addPlayHistory(this.currentSong);
+  }
+
   private updateLyric() {
     if (this.lyrics.length === 0) return;
 
@@ -233,6 +247,7 @@ export class PlayerService {
       await this.initPlayer();
 
       this.currentSong = song;
+      this.historyRecorded = false;
       this.notifySongChange(song);
       this.audioSessionService.updateMetadata(song);
       this.playerState = PlayerState.LOADING;

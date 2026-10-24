@@ -16,16 +16,16 @@ export interface ThemeColors {
 }
 
 const LIGHT_COLORS: ThemeColors = {
-  bgPrimary: '#FFFFFF',
-  bgSecondary: '#F5F5F5',
-  bgSurface: '#FAFAFA',
-  textPrimary: '#000000',
-  textSecondary: '#000000',
-  textTertiary: '#000000',
-  accent: '#FF6B6B',
-  accentLight: '#FFF0F0',
-  border: '#E5E5E5',
-  overlay: '#00000060',
+  bgPrimary: '#F7F6F2',
+  bgSecondary: '#FFFFFF',
+  bgSurface: '#FFFFFF',
+  textPrimary: '#17181A',
+  textSecondary: '#6B6F76',
+  textTertiary: '#9A9EA5',
+  accent: '#C8424C',
+  accentLight: '#FDEBED',
+  border: '#ECE8E0',
+  overlay: '#00000066',
 };
 
 const DARK_COLORS: ThemeColors = {

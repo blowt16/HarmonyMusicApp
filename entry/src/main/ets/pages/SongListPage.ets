@@ -1,36 +1,28 @@
 import { ApiService } from '../services/ApiService';
 import { PlayerService } from '../services/PlayerService';
 import { thumbnail } from '../utils/ImageUtils';
-import { Song, PlaylistDetail, PlayerState, EffectLevel } from '../models/MusicModel';
+import { Song, PlaylistDetail, PlayMode } from '../models/MusicModel';
 import { SongItem } from '../components/SongItem';
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import {
   HdsNavigation,
   HdsNavigationTitleMode,
-  HdsTabs,
-  HdsTabsController,
   hdsMaterial,
-  HdsBarStyle,
   ScrollEffectType,
   BlurStrategy
 } from '@kit.UIDesignKit';
-import { SymbolGlyphModifier, LengthMetrics } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 
 @Entry
 @Component
 struct SongListPage {
-  @StorageLink('bgPrimary') bgPrimary: string = '#FFFFFF';
-  @StorageLink('bgSecondary') bgSecondary: string = '#F5F5F5';
-  @StorageLink('textPrimary') textPrimary: string = '#000000';
-  @StorageLink('textTertiary') textTertiary: string = '#000000';
-  @StorageLink('accent') accent: string = '#FF6B6B';
-  @StorageLink('accentLight') accentLight: string = '#FFF0F0';
-  @StorageLink('isDark') isDark: boolean = false;
-  @StorageLink('bgImage') bgImage: string = '';
-  @StorageLink('bgOpacity') bgOpacity: number = 0.15;
-  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
-  @StorageLink('effectLevel') effectLevel: number = EffectLevel.MEDIUM;
+  @StorageLink('bgPrimary') bgPrimary: string = '#F7F6F2';
+  @StorageLink('bgSecondary') bgSecondary: string = '#FFFFFF';
+  @StorageLink('textPrimary') textPrimary: string = '#17181A';
+  @StorageLink('textTertiary') textTertiary: string = '#9A9EA5';
+  @StorageLink('accent') accent: string = '#C8424C';
+  @StorageLink('accentLight') accentLight: string = '#FDEBED';
 
   @State playlistName: string = '';
   @State playlistId: number = 0;
@@ -40,20 +32,12 @@ struct SongListPage {
   @State songs: Song[] = [];
   @State isLoading: boolean = true;
   @State currentPlayingId: number = -1;
-
-  // MiniPlayer 状态
-  @State miniCurrentSong: Song | null = null;
-  @State miniPlayerState: PlayerState = PlayerState.STOPPED;
-  @State miniSupportsImmersive: boolean = false;
-  @State miniBarExpanded: boolean = false;
+  @State customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
 
   private apiService: ApiService = ApiService.getInstance();
   private playerService: PlayerService = PlayerService.getInstance();
-  private tabsController: HdsTabsController = new HdsTabsController();
-  private customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
 
   private songListener: ((song: Song | null) => void) | null = null;
-  private miniStateListener: ((state: PlayerState) => void) | null = null;
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, Object>;
@@ -66,28 +50,15 @@ struct SongListPage {
     }
 
     const materialTypes: Array<hdsMaterial.MaterialType> = hdsMaterial.getSystemMaterialTypes();
-    this.miniSupportsImmersive = materialTypes.indexOf(hdsMaterial.MaterialType.IMMERSIVE) >= 0;
-    this.customMaterialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
-
-    // MiniPlayer 监听
-    this.miniCurrentSong = this.playerService.getCurrentSong();
-    this.miniPlayerState = this.playerService.getPlayerState();
-    if (this.miniCurrentSong) {
-      this.currentPlayingId = this.miniCurrentSong.id;
+    if (materialTypes.indexOf(hdsMaterial.MaterialType.IMMERSIVE) >= 0) {
+      this.customMaterialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
     }
 
+    this.currentPlayingId = this.playerService.getCurrentSong()?.id ?? -1;
     this.songListener = (song: Song | null) => {
-      this.miniCurrentSong = song;
-      if (song) {
-        this.currentPlayingId = song.id;
-      }
+      this.currentPlayingId = song ? song.id : -1;
     };
     this.playerService.addSongChangeListener(this.songListener);
-
-    this.miniStateListener = (state: PlayerState) => {
-      this.miniPlayerState = state;
-    };
-    this.playerService.addStateChangeListener(this.miniStateListener);
 
     await this.loadPlaylistDetail();
   }
@@ -95,9 +66,6 @@ struct SongListPage {
   aboutToDisappear() {
     if (this.songListener) {
       this.playerService.removeSongChangeListener(this.songListener);
-    }
-    if (this.miniStateListener) {
-      this.playerService.removeStateChangeListener(this.miniStateListener);
     }
   }
 
@@ -112,7 +80,6 @@ struct SongListPage {
       }
       if (detail && detail.songs.length > 0) {
         this.songs = detail.songs;
-        // 用接口返回的封面和名称更新
         if (detail.info.coverUrl) {
           this.coverUrl = detail.info.coverUrl;
         }
@@ -135,278 +102,204 @@ struct SongListPage {
     router.pushUrl({ url: 'pages/PlayPage' });
   }
 
-  // ========== 沉浸光感效果 ==========
-  getBlurScale(): number {
-    if (!this.miniSupportsImmersive) {
-      return 0.3;
+  playAll(random: boolean) {
+    if (this.songs.length === 0) {
+      return;
     }
-    switch (this.effectLevel) {
-      case EffectLevel.OFF:
-        return 0;
-      case EffectLevel.LOW:
-        return 0.3;
-      case EffectLevel.MEDIUM:
-        return 0.6;
-      case EffectLevel.HIGH:
-        return 1.0;
-      default:
-        return 0.6;
-    }
+    const index: number = random ? Math.floor(Math.random() * this.songs.length) : 0;
+    this.playerService.setPlayMode(random ? PlayMode.RANDOM : PlayMode.SEQUENCE);
+    this.playerService.setPlaylist(this.songs, index);
+    this.playerService.playSong(this.songs[index]);
+    router.pushUrl({ url: 'pages/PlayPage' });
   }
 
-  getOverlayOpacity(): number {
-    if (!this.miniSupportsImmersive) {
-      return 0.12;
-    }
-    switch (this.effectLevel) {
-      case EffectLevel.OFF:
-        return 0;
-      case EffectLevel.LOW:
-        return 0.12;
-      case EffectLevel.MEDIUM:
-        return 0.25;
-      case EffectLevel.HIGH:
-        return 0.4;
-      default:
-        return 0.25;
-    }
-  }
-
-  // ========== MiniBarBuilder ==========
   @Builder
-  MiniBarBuilder() {
-    if (this.miniCurrentSong) {
-      if (this.miniBarExpanded) {
-        Row() {
-          Image(thumbnail(this.miniCurrentSong.coverUrl, 100, 100))
-            .width(50)
-            .height(50)
-            .borderRadius(25)
-            .objectFit(ImageFit.Cover)
+  PlaylistHeader() {
+    Column() {
+      Row() {
+        Image(thumbnail(this.coverUrl, 320, 320))
+          .width(110)
+          .height(110)
+          .borderRadius(16)
+          .objectFit(ImageFit.Cover)
+          .backgroundColor(this.accentLight)
 
-          Column() {
-            Text(this.miniCurrentSong.name || '未知歌曲')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.textPrimary)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-            Text(this.miniCurrentSong.artist || '未知歌手')
+        Column() {
+          Text(this.playlistName)
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.textPrimary)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(`${this.songs.length} 首歌曲`)
+            .fontSize(12)
+            .fontColor(this.textTertiary)
+            .margin({ top: 6 })
+          if (this.artistName) {
+            Text(this.artistName)
               .fontSize(12)
               .fontColor(this.textTertiary)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .margin({ top: 2 })
+              .margin({ top: 4 })
           }
-          .layoutWeight(1)
-          .margin({ left: 16 })
-          .alignItems(HorizontalAlign.Start)
-
-          Button() {
-            if (this.miniPlayerState === PlayerState.PLAYING) {
-              SymbolGlyph($r('sys.symbol.pause_fill'))
-                .fontSize(20)
-                .fontColor([this.textPrimary])
-            } else {
-              SymbolGlyph($r('sys.symbol.play_fill'))
-                .fontSize(20)
-                .fontColor([this.textPrimary])
-            }
-          }
-          .width(44)
-          .height(44)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            if (this.miniPlayerState === PlayerState.PLAYING) {
-              this.playerService.pause();
-            } else {
-              this.playerService.play();
-            }
-          })
-
-          Button() {
-            SymbolGlyph($r('sys.symbol.forward_end_fill'))
-              .fontSize(18)
-              .fontColor([this.textPrimary])
-          }
-          .width(44)
-          .height(44)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            this.playerService.playNext();
-          })
         }
-        .width('100%')
-        .height(64)
-        .padding({ left: 16, right: 8 })
-        .justifyContent(FlexAlign.Start)
-        .alignItems(VerticalAlign.Center)
-      } else {
-        Row() {
-          Image(thumbnail(this.miniCurrentSong.coverUrl, 100, 100))
-            .width(50)
-            .height(50)
-            .borderRadius(25)
-            .objectFit(ImageFit.Cover)
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
+        .layoutWeight(1)
+        .margin({ left: 14 })
+        .alignItems(HorizontalAlign.Start)
       }
+      .width('100%')
+
+      Row({ space: 12 }) {
+        Button() {
+          Row() {
+            SymbolGlyph($r('sys.symbol.play_fill'))
+              .fontSize(16)
+              .fontColor(['#FFFFFF'])
+            Text('全部播放')
+              .fontSize(14)
+              .fontColor('#FFFFFF')
+              .margin({ left: 6 })
+          }
+        }
+        .layoutWeight(1)
+        .height(44)
+        .backgroundColor(this.accent)
+        .borderRadius(22)
+        .onClick(() => {
+          this.playAll(false);
+        })
+
+        Button() {
+          Row() {
+            SymbolGlyph($r('sys.symbol.shuffle'))
+              .fontSize(16)
+              .fontColor([this.accent])
+            Text('随机播放')
+              .fontSize(14)
+              .fontColor(this.accent)
+              .margin({ left: 6 })
+          }
+        }
+        .layoutWeight(1)
+        .height(44)
+        .backgroundColor(this.accentLight)
+        .borderRadius(22)
+        .onClick(() => {
+          this.playAll(true);
+        })
+      }
+      .width('100%')
+      .margin({ top: 14 })
     }
+    .width('100%')
+    .padding(18)
+    .backgroundColor(this.bgSecondary)
+    .borderRadius(20)
   }
 
   build() {
-    Stack() {
-      // 背景图片层
-      if (this.bgImage) {
-        Image(this.bgImage)
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Cover)
+    HdsNavigation() {
+      Column() {
         Row()
+          .height(110)
           .width('100%')
-          .height('100%')
-          .backgroundColor(this.isDark ? '#000000' : '#FFFFFF')
-          .opacity(this.bgOpacity)
-      }
 
-      HdsNavigation() {
-        HdsTabs({ controller: this.tabsController }) {
-          TabContent() {
-            // 歌曲列表内容
-            Column() {
-              if (this.isLoading) {
-                Column() {
-                  LoadingProgress()
-                    .width(40)
-                    .height(40)
-                  Text('加载歌曲列表中...')
-                    .fontSize(14)
-                    .fontColor(this.textTertiary)
-                    .margin({ top: 12 })
-                }
-                .width('100%')
-                .layoutWeight(1)
-                .justifyContent(FlexAlign.Center)
-              } else if (this.songs.length === 0) {
-                Column() {
-                  Text('该歌单暂无歌曲')
-                    .fontSize(14)
-                    .fontColor(this.textTertiary)
-                }
-                .width('100%')
-                .layoutWeight(1)
-                .justifyContent(FlexAlign.Center)
-              } else {
-                // 歌曲列表（沉浸光感效果）
-                Stack() {
-                  // 背景模糊层
-                  Row()
-                    .width('100%')
-                    .height('100%')
-                    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK, {
-                      scale: this.getBlurScale()
-                    })
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress()
+              .width(36)
+              .height(36)
+              .color(this.accent)
+            Text('加载歌曲列表中…')
+              .fontSize(13)
+              .fontColor(this.textTertiary)
+              .margin({ top: 10 })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else if (this.songs.length === 0) {
+          Column() {
+            Text('该歌单暂无歌曲')
+              .fontSize(15)
+              .fontColor(this.textPrimary)
+            Button('重新加载')
+              .height(38)
+              .fontSize(14)
+              .fontColor('#FFFFFF')
+              .backgroundColor(this.accent)
+              .borderRadius(19)
+              .margin({ top: 14 })
+              .onClick(() => {
+                this.loadPlaylistDetail();
+              })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else {
+          Column() {
+            this.PlaylistHeader()
 
-                  // 半透明底色
-                  Row()
-                    .width('100%')
-                    .height('100%')
-                    .backgroundColor(this.isDark ? '#000000' : '#FFFFFF')
-                    .opacity(this.getOverlayOpacity())
-
-                  // 列表内容
-                  Column() {
-                    Column()
-                      .height(200)
-                    List() {
-                      ForEach(this.songs, (song: Song, index: number) => {
-                        ListItem() {
-                          SongItem({
-                            song: song,
-                            index: index,
-                            isActive: song.id === this.currentPlayingId,
-                            onItemClick: (clickedSong: Song, clickedIndex: number) => {
-                              this.playSong(clickedSong, clickedIndex);
-                            }
-                          })
-                        }
-                      })
-                      ListItem() {
-                        Column() {
-                          Blank().height(64)
-                        }
-                      }
+            List() {
+              ForEach(this.songs, (song: Song, index: number) => {
+                ListItem() {
+                  SongItem({
+                    song: song,
+                    index: index,
+                    isActive: song.id === this.currentPlayingId,
+                    onItemClick: (clickedSong: Song, clickedIndex: number) => {
+                      this.playSong(clickedSong, clickedIndex);
                     }
-                    .width('100%')
-                    .layoutWeight(1)
-                    .scrollBar(BarState.Off)
-                    .edgeEffect(EdgeEffect.Spring)
-                  }
-                  .width('100%')
-                  .height('100%')
+                  })
                 }
-                .width('100%')
-                .layoutWeight(1)
+              })
+              ListItem() {
+                Row().width('100%').height(120)
               }
             }
             .width('100%')
-            .height('100%')
+            .layoutWeight(1)
+            .margin({ top: 12 })
+            .backgroundColor(this.bgSecondary)
+            .borderRadius(20)
+            .clip(true)
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
           }
-          .tabBar(new BottomTabBarStyle({
-            normal: new SymbolGlyphModifier($r('sys.symbol.list_bullet')).fontColor([Color.White]),
-            selected: new SymbolGlyphModifier($r('sys.symbol.list_bullet')).fontColor([Color.White])
-          }, '歌单'))
+          .width('100%')
+          .layoutWeight(1)
+          .padding({ left: 20, right: 20 })
         }
-        .barOverlap(true)
-        .vertical(false)
-        .barPosition(BarPosition.End)
-        .scrollable(false)
-        .animationDuration(0)
-        .layoutWeight(1)
-        .barFloatingStyle({
-          barBottomMargin: 24,
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: this.customMaterialLevel
-          },
-          miniBar: {
-            miniBarBuilder: (): void => this.MiniBarBuilder(),
-            onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
-              this.miniBarExpanded = miniBarStyle === HdsBarStyle.EXPAND;
-            }
-          }
-        })
       }
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        content: {
-          title: { mainTitle: this.playlistName }
-        },
-        style: {
-          scrollEffectOpts: {
-            enableScrollEffect: true,
-            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-            blurEffectiveStartOffset: LengthMetrics.vp(0),
-            blurEffectiveEndOffset: LengthMetrics.vp(40)
-          },
-          blurStrategy: BlurStrategy.ADAPTIVE,
-          originalStyle: { backgroundStyle: { backgroundColor: '#00FFFFFF' } },
-          scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00FFFFFF' } },
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: this.customMaterialLevel
-          }
-        }
-      })
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .hideBackButton(false)
-      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.bgPrimary)
     }
-    .width('100%')
-    .height('100%')
+    .titleBar({
+      avoidLayoutSafeArea: true,
+      content: {
+        title: { mainTitle: '歌单' }
+      },
+      style: {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(40)
+        },
+        blurStrategy: BlurStrategy.ADAPTIVE,
+        originalStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
+        scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
+        systemMaterialEffect: {
+          materialType: hdsMaterial.MaterialType.IMMERSIVE,
+          materialLevel: this.customMaterialLevel
+        }
+      }
+    })
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(false)
+    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
   }
 }

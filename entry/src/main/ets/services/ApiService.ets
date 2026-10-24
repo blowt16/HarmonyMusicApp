@@ -224,6 +224,10 @@ export class ApiService {
   private static readonly TTL_PLAYLIST_SEARCH = 5 * 60 * 1000; // 歌单搜索 5 分钟
   private static readonly TTL_TOP_PLAYLIST = 10 * 60 * 1000; // 热门歌单 10 分钟
 
+  // 网络超时，避免断网时一直等待
+  private static readonly CONNECT_TIMEOUT = 10000;
+  private static readonly READ_TIMEOUT = 10000;
+
   private constructor() {
     this.httpRequest = http.createHttp();
   }
@@ -260,6 +264,8 @@ export class ApiService {
 
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.POST,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Referer': 'https://music.163.com',
@@ -312,10 +318,10 @@ export class ApiService {
           return result;
         }
       }
-      return { songs: [], total: 0, page };
+      return { songs: [], total: 0, page, error: true };
     } catch (error) {
       console.error('Search music error:', error);
-      return { songs: [], total: 0, page };
+      return { songs: [], total: 0, page, error: true };
     }
   }
 
@@ -471,6 +477,8 @@ export class ApiService {
 
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.POST,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Referer': 'https://music.163.com',
@@ -520,6 +528,8 @@ export class ApiService {
       const body: string = `id=${playlistId}&n=1000&s=0`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.POST,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Referer': 'https://music.163.com',
@@ -610,6 +620,8 @@ export class ApiService {
       const body: string = `ids=${encodeURIComponent(idsStr)}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.POST,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Referer': 'https://music.163.com',
@@ -661,6 +673,8 @@ export class ApiService {
       const url: string = `https://music.163.com/api/personalized?limit=${limit}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Referer': 'https://music.163.com'
         }
@@ -702,6 +716,8 @@ export class ApiService {
       const url: string = `https://music.163.com/api/top/playlist?cat=${encodeURIComponent(category)}&limit=${limit}&order=hot`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Referer': 'https://music.163.com'
         }
@@ -787,6 +803,8 @@ export class ApiService {
       const url: string = `https://music.163.com/api/personalized/newalbum?limit=${limit}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: {
           'Referer': 'https://music.163.com'
         }

@@ -1,9 +1,10 @@
-﻿import { ApiService } from '../services/ApiService';
+import { ApiService } from '../services/ApiService';
 import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
-import { ThemeManager } from '../services/ThemeManager';
 import { thumbnail } from '../utils/ImageUtils';
-import { Song, AudioQuality, PlaylistInfo, PlaylistDetail, EffectLevel, PlayerState } from '../models/MusicModel';
+import { Song, AudioQuality, PlaylistInfo, EffectLevel, PlayerState } from '../models/MusicModel';
+import { FavoritesView } from './views/FavoritesView';
+import { ProfileView } from './views/ProfileView';
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import {
@@ -12,21 +13,16 @@ import {
   HdsTabs,
   HdsTabsController,
   hdsMaterial,
-  HdsNavigationMenuContentOptions,
   HdsBarStyle,
+  HdsTabsFloatingStyle,
   ScrollEffectType,
   BlurStrategy
 } from '@kit.UIDesignKit';
 import { SymbolGlyphModifier, LengthMetrics } from '@kit.ArkUI';
-import picker from '@ohos.file.picker';
 
-interface RecommendationSection {
-  title: string;
-  playlists: PlaylistInfo[];
-  songs?: Song[];
-}
+const TAB_SELECTED_COLOR: string = '#C8424C';
+const TAB_UNSELECTED_COLOR: string = '#6B6F76';
 
-// 底部页签数据配置
 interface TabItem {
   symbolGlyph: SymbolGlyphModifier;
   symbolGlyph1: SymbolGlyphModifier;
@@ -35,18 +31,23 @@ interface TabItem {
 
 const TAB_CONFIG: TabItem[] = [
   {
-    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.house')).fontColor([Color.White]),
-    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.house_fill')).fontColor([Color.White]),
-    label: '推荐'
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.house')).fontColor([TAB_UNSELECTED_COLOR]),
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.house_fill')).fontColor([TAB_SELECTED_COLOR]),
+    label: '首页'
   },
   {
-    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.magnifyingglass')).fontColor([Color.White]),
-    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.magnifyingglass')).fontColor([Color.White]),
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.magnifyingglass')).fontColor([TAB_UNSELECTED_COLOR]),
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.magnifyingglass')).fontColor([TAB_SELECTED_COLOR]),
     label: '搜索'
   },
   {
-    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.person')).fontColor([Color.White]),
-    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.person_fill')).fontColor([Color.White]),
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.heart')).fontColor([TAB_UNSELECTED_COLOR]),
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.heart_fill')).fontColor([TAB_SELECTED_COLOR]),
+    label: '收藏'
+  },
+  {
+    symbolGlyph: new SymbolGlyphModifier($r('sys.symbol.person')).fontColor([TAB_UNSELECTED_COLOR]),
+    symbolGlyph1: new SymbolGlyphModifier($r('sys.symbol.person_fill')).fontColor([TAB_SELECTED_COLOR]),
     label: '我的'
   }
 ];
@@ -54,84 +55,60 @@ const TAB_CONFIG: TabItem[] = [
 @Entry
 @Component
 struct Index {
-  @StorageLink('bgPrimary') bgPrimary: string = '#FFFFFF';
-  @StorageLink('bgSecondary') bgSecondary: string = '#F5F5F5';
-  @StorageLink('textPrimary') textPrimary: string = '#000000';
-  @StorageLink('textSecondary') textSecondary: string = '#000000';
-  @StorageLink('textTertiary') textTertiary: string = '#000000';
-  @StorageLink('accent') accent: string = '#FF6B6B';
+  @StorageLink('bgPrimary') bgPrimary: string = '#F7F6F2';
+  @StorageLink('bgSecondary') bgSecondary: string = '#FFFFFF';
+  @StorageLink('textPrimary') textPrimary: string = '#17181A';
+  @StorageLink('textSecondary') textSecondary: string = '#6B6F76';
+  @StorageLink('textTertiary') textTertiary: string = '#9A9EA5';
+  @StorageLink('accent') accent: string = '#C8424C';
+  @StorageLink('accentLight') accentLight: string = '#FDEBED';
+  @StorageLink('border') themeBorder: string = '#ECE8E0';
   @StorageLink('isDark') isDark: boolean = false;
   @StorageLink('bgImage') bgImage: string = '';
   @StorageLink('bgOpacity') bgOpacity: number = 0.15;
+  @StorageLink('effectLevel') effectLevel: number = EffectLevel.MEDIUM;
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
-  @StorageProp('bottomNavBarHeight') bottomNavBarHeight: number = 0;
 
-  @State sections: RecommendationSection[] = [];
-  @State mySections: RecommendationSection[] = [];
-  @State isLoading: boolean = false;
-  @State customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
   @State currentTabIndex: number = 0;
 
-  // 搜索相关状态
+  // 首页
+  @State featured: PlaylistInfo | null = null;
+  @State recommendPlaylists: PlaylistInfo[] = [];
+  @State hotPlaylists: PlaylistInfo[] = [];
+  @State isLoadingHome: boolean = true;
+  @State homeError: boolean = false;
+
+  // 收藏 / 最近播放
+  @State favorites: Song[] = [];
+  @State history: Song[] = [];
+  @State nickname: string = 'demo';
+
+  // 搜索
   @State searchKeyword: string = '';
   @State searchResults: Song[] = [];
   @State searchLoading: boolean = false;
-  @State currentPage: number = 1;
-  @State totalCount: number = 0;
-  @State currentPlayingId: number = -1;
-  @State searchHistory: string[] = [];
+  @State searchPage: number = 1;
+  @State searchTotal: number = 0;
+  @State searchError: boolean = false;
+  @State loadMoreFailed: boolean = false;
   @State showHistory: boolean = true;
+  @State searchHistory: string[] = [];
+  @State currentPlayingId: number = -1;
 
-  // 设置 — 效果档位
-  @StorageLink('effectLevel') effectLevel: number = EffectLevel.MEDIUM;
-
-  private apiService: ApiService = ApiService.getInstance();
-  private playerService: PlayerService = PlayerService.getInstance();
-  private storageService: StorageService = StorageService.getInstance();
-  private themeManager: ThemeManager = ThemeManager.getInstance();
-  private tabsController: HdsTabsController = new HdsTabsController();
-
-  // MiniPlayer 状态
+  // MiniPlayer
   @State miniCurrentSong: Song | null = null;
   @State miniPlayerState: PlayerState = PlayerState.STOPPED;
   @State miniSupportsImmersive: boolean = false;
   @State miniBarExpanded: boolean = false;
 
+  private apiService: ApiService = ApiService.getInstance();
+  private playerService: PlayerService = PlayerService.getInstance();
+  private storageService: StorageService = StorageService.getInstance();
+  private tabsController: HdsTabsController = new HdsTabsController();
+  private customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+
   private songListener: ((song: Song | null) => void) | null = null;
   private miniStateListener: ((state: PlayerState) => void) | null = null;
-
-  // 标题栏右侧菜单
-  private menus: HdsNavigationMenuContentOptions = {
-    value: [
-      {
-        content: {
-          label: '搜索',
-          icon: $r('sys.symbol.magnifyingglass'),
-          action: (): void => {
-            this.tabsController.changeIndex(1);
-          }
-        }
-      },
-      {
-        content: {
-          label: this.isDark ? '浅色' : '深色',
-          icon: $r('sys.symbol.moon'),
-          action: (): void => {
-            this.toggleTheme();
-          }
-        }
-      },
-      {
-        content: {
-          label: '背景',
-          icon: $r('sys.symbol.square_grid_2x2'),
-          action: (): void => {
-            this.pickBgImage();
-          }
-        }
-      }
-    ]
-  };
 
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
@@ -139,12 +116,9 @@ struct Index {
     const savedQuality: AudioQuality = await this.storageService.getAudioQuality();
     this.playerService.setQuality(savedQuality);
 
-    // 检测设备沉浸光感能力，选择最优档位
     const materialTypes: Array<hdsMaterial.MaterialType> = hdsMaterial.getSystemMaterialTypes();
     this.miniSupportsImmersive = materialTypes.indexOf(hdsMaterial.MaterialType.IMMERSIVE) >= 0;
-
-      this.customMaterialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
-
+    this.customMaterialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
 
     this.songListener = (song: Song | null) => {
       this.miniCurrentSong = song;
@@ -156,14 +130,18 @@ struct Index {
 
     this.miniCurrentSong = this.playerService.getCurrentSong();
     this.miniPlayerState = this.playerService.getPlayerState();
+    if (this.miniCurrentSong) {
+      this.currentPlayingId = this.miniCurrentSong.id;
+    }
 
     this.miniStateListener = (state: PlayerState) => {
       this.miniPlayerState = state;
     };
     this.playerService.addStateChangeListener(this.miniStateListener);
 
-    this.loadRecommendations();
-    this.searchHistory = await this.storageService.getSearchHistory();
+    await this.refreshLibrary();
+    await this.loadSearchHistory();
+    await this.loadHome();
   }
 
   aboutToDisappear() {
@@ -175,175 +153,54 @@ struct Index {
     }
   }
 
-  async loadRecommendations() {
-    this.isLoading = true;
+  onPageShow() {
+    this.refreshLibrary();
+  }
 
-    const favorites = await this.storageService.getFavorites();
-    if (favorites.length > 0) {
-      this.mySections = [{ title: '我的收藏', playlists: [], songs: favorites }];
-    }
+  async refreshLibrary() {
+    this.favorites = await this.storageService.getFavorites();
+    this.history = await this.storageService.getPlayHistory();
+  }
 
-    const playHistory = await this.storageService.getPlayHistory();
-    if (playHistory.length > 0) {
-      this.mySections = [...this.mySections, { title: '最近播放', playlists: [], songs: playHistory }];
-    }
+  async loadSearchHistory() {
+    this.searchHistory = await this.storageService.getSearchHistory();
+  }
 
-    // 逐个 section 增量渲染，避免一次性加载全部图片
-    if (playHistory.length > 0) {
-      const historyArtists = this.extractTopArtists(playHistory, 3);
-      const historyPlaylists = await this.fetchPlaylistsForArtists(historyArtists, 6);
-      if (historyPlaylists.length > 0) {
-        this.sections = [...this.sections, { title: '根据播放历史推荐', playlists: historyPlaylists }];
-      }
-    }
-
-    if (favorites.length > 0) {
-      const favArtists = this.extractTopArtists(favorites, 3);
-      const favPlaylists = await this.fetchPlaylistsForArtists(favArtists, 6);
-      if (favPlaylists.length > 0) {
-        this.sections = [...this.sections, { title: '根据收藏推荐', playlists: favPlaylists }];
-      }
-    }
-
+  async loadHome() {
+    this.isLoadingHome = true;
+    this.homeError = false;
     try {
-      const hotPlaylists = await this.loadHotPlaylists();
-      if (hotPlaylists.length > 0) {
-        this.sections = [...this.sections, { title: '专辑推荐', playlists: hotPlaylists }];
-      }
-    } catch (e) {
-      console.error('Failed to load hot playlists:', e);
-    }
-
-    if (this.sections.length === 0) {
-      try {
-        const fallback = await this.apiService.getTopPlaylists('全部', 8);
-        if (fallback.length > 0) {
-          this.sections = [{ title: '专辑推荐', playlists: fallback.slice(0, 8) }];
-        }
-      } catch (e) {
-        console.error('Fallback hot playlists failed:', e);
-      }
-    }
-    this.isLoading = false;
-  }
-
-  extractTopArtists(songs: Song[], count: number): string[] {
-    const artistCount = new Map<string, number>();
-    for (const song of songs) {
-      const artists = song.artist.split('/');
-      for (const artist of artists) {
-        const trimmed = artist.trim();
-        if (trimmed && trimmed !== '未知') {
-          artistCount.set(trimmed, (artistCount.get(trimmed) || 0) + 1);
-        }
-      }
-    }
-    return Array.from(artistCount.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, count)
-      .map(e => e[0]);
-  }
-
-  async fetchPlaylistsForArtists(artists: string[], limit: number): Promise<PlaylistInfo[]> {
-    const seen = new Set<number>();
-    const results: PlaylistInfo[] = [];
-
-    for (const artist of artists) {
-      if (results.length >= limit) {
-        break;
-      }
-      try {
-        const result = await this.apiService.searchPlaylists(artist, 5);
-        for (const pl of result.playlists) {
-          if (!seen.has(pl.id) && pl.songCount > 0) {
-            seen.add(pl.id);
-            results.push(pl);
-            if (results.length >= limit) {
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        console.error(`Failed to fetch playlists for artist: ${artist}`, e);
-      }
-    }
-    return results;
-  }
-
-  async loadHotPlaylists(): Promise<PlaylistInfo[]> {
-    try {
-      const albums = await this.apiService.getNewAlbums(8);
+      const albums: PlaylistInfo[] = await this.apiService.getNewAlbums(8);
+      const tops: PlaylistInfo[] = await this.apiService.getTopPlaylists('全部', 8);
+      this.recommendPlaylists = albums;
+      this.hotPlaylists = tops;
       if (albums.length > 0) {
-        return albums;
+        this.featured = albums[0];
+      } else if (tops.length > 0) {
+        this.featured = tops[0];
+      } else {
+        this.featured = null;
+        this.homeError = true;
       }
     } catch (e) {
-      console.error('New albums failed:', e);
+      console.error('Load home error:', e);
+      this.homeError = true;
     }
-
-    // 兜底：返回内置默认歌单
-    return this.getDefaultPlaylists();
+    this.isLoadingHome = false;
   }
 
-  // 内置默认歌单 — 网络不可用时的兜底数据
-  private getDefaultPlaylists(): PlaylistInfo[] {
-    return [
-      {
-        id: 3778678,
-        name: '热歌榜',
-        coverUrl: 'https://p2.music.126.net/DrZIj0dE4EbE0HXwGVnu4A==/109951167163446309.jpg',
-        songCount: 100,
-        playCount: 0,
-        creator: '网易云音乐'
-      },
-      {
-        id: 3779629,
-        name: '新歌榜',
-        coverUrl: 'https://p1.music.126.net/Gg0HytXxFHWOVQ95DobSOg==/109951167163446023.jpg',
-        songCount: 100,
-        playCount: 0,
-        creator: '网易云音乐'
-      },
-      {
-        id: 2250011884,
-        name: '飙升榜',
-        coverUrl: 'https://p2.music.126.net/MXQ9ALqZR3rR3QhXHb7bgg==/109951167163445713.jpg',
-        songCount: 100,
-        playCount: 0,
-        creator: '网易云音乐'
-      },
-      {
-        id: 19723756,
-        name: '云音乐电音榜',
-        coverUrl: 'https://p2.music.126.net/hQ3C6y7TFfIVS0_fBm90Yg==/109951167163445375.jpg',
-        songCount: 100,
-        playCount: 0,
-        creator: '网易云音乐'
-      }
-    ];
-  }
-
-  async openPlaylist(playlist: PlaylistInfo) {
-    router.pushUrl({
-      url: 'pages/SongListPage',
-      params: {
-        playlistName: playlist.name,
-        playlistId: playlist.id,
-        coverUrl: playlist.coverUrl,
-        isAlbum: playlist.isAlbum === true,
-        artistName: playlist.creator || ''
-      }
-    });
-  }
-
-  async playSongAt(songs: Song[], index: number) {
-    this.playerService.setPlaylist(songs, index);
-    await this.playerService.playSong(songs[index]);
-    router.pushUrl({ url: 'pages/PlayPage' });
-  }
-
-  toggleTheme() {
-    this.themeManager.toggleTheme();
-    this.storageService.setThemeDark(this.themeManager.getIsDark());
+  greeting(): string {
+    const hour: number = new Date().getHours();
+    if (hour < 6) {
+      return '夜深了';
+    }
+    if (hour < 12) {
+      return '早上好';
+    }
+    if (hour < 18) {
+      return '下午好';
+    }
+    return '晚上好';
   }
 
   formatPlayCount(count: number): string {
@@ -356,39 +213,83 @@ struct Index {
     return count.toString();
   }
 
-  // ========== 搜索功能 ==========
-  async searchMusic() {
-    if (!this.searchKeyword.trim()) return;
+  openPlaylist(playlist: PlaylistInfo) {
+    router.pushUrl({
+      url: 'pages/SongListPage',
+      params: {
+        playlistName: playlist.name,
+        playlistId: playlist.id,
+        coverUrl: playlist.coverUrl,
+        isAlbum: playlist.isAlbum === true,
+        artistName: playlist.creator || ''
+      }
+    });
+  }
 
+  async playSongsAt(songs: Song[], index: number) {
+    this.playerService.setPlaylist(songs, index);
+    await this.playerService.playSong(songs[index]);
+    router.pushUrl({ url: 'pages/PlayPage' });
+  }
+
+  async playSearchResult(song: Song, index: number) {
+    this.playSongsAt(this.searchResults, index);
+  }
+
+  async playHistorySong(song: Song, songs: Song[], index: number) {
+    this.playerService.setPlaylist(songs, index);
+    await this.playerService.playSong(song);
+    router.pushUrl({ url: 'pages/PlayPage' });
+  }
+
+  async clearHistory() {
+    await this.storageService.clearPlayHistory();
+    await this.refreshLibrary();
+    promptAction.showToast({ message: '已清空最近播放', duration: 1500 });
+  }
+
+  async runSearch() {
+    const keyword: string = this.searchKeyword.trim();
+    if (!keyword) {
+      return;
+    }
     this.searchLoading = true;
-    this.currentPage = 1;
+    this.searchError = false;
+    this.loadMoreFailed = false;
     this.showHistory = false;
+    this.searchPage = 1;
 
-    await this.storageService.addSearchHistory(this.searchKeyword);
-    this.searchHistory = await this.storageService.getSearchHistory();
+    await this.storageService.addSearchHistory(keyword);
+    await this.loadSearchHistory();
 
-    const result = await this.apiService.searchMusic(this.searchKeyword, this.currentPage);
-    this.searchResults = result.songs;
-    this.totalCount = result.total;
+    const result = await this.apiService.searchMusic(keyword, 1);
+    if (result.error === true) {
+      this.searchError = true;
+      this.searchResults = [];
+      this.searchTotal = 0;
+    } else {
+      this.searchResults = result.songs;
+      this.searchTotal = result.total;
+    }
     this.searchLoading = false;
   }
 
   async loadMore() {
-    if (this.searchLoading || this.searchResults.length >= this.totalCount) return;
-
+    if (this.searchLoading || this.searchResults.length >= this.searchTotal) {
+      return;
+    }
     this.searchLoading = true;
-    this.currentPage++;
-
-    const result = await this.apiService.searchMusic(this.searchKeyword, this.currentPage);
-    this.searchResults = [...this.searchResults, ...result.songs];
+    const nextPage: number = this.searchPage + 1;
+    const result = await this.apiService.searchMusic(this.searchKeyword.trim(), nextPage);
+    if (result.error === true) {
+      this.loadMoreFailed = true;
+    } else {
+      this.searchPage = nextPage;
+      this.searchResults = this.searchResults.concat(result.songs);
+      this.searchTotal = result.total;
+      this.loadMoreFailed = false;
+    }
     this.searchLoading = false;
-  }
-
-  async playSong(song: Song, index: number) {
-    this.playerService.setPlaylist(this.searchResults, index);
-    await this.storageService.addPlayHistory(song);
-    await this.playerService.playSong(song);
-    router.pushUrl({ url: 'pages/PlayPage' });
   }
 
   async clearSearchHistory() {
@@ -398,45 +299,9 @@ struct Index {
 
   selectHistory(keyword: string) {
     this.searchKeyword = keyword;
-    this.searchMusic();
+    this.runSearch();
   }
 
-  async setEffectLevel(level: EffectLevel) {
-    this.effectLevel = level;
-    await this.storageService.setEffectLevel(level);
-  }
-
-  // ========== 背景图片 ==========
-  async pickBgImage() {
-    try {
-      const photoSelectOptions = new picker.PhotoSelectOptions();
-      photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
-      photoSelectOptions.maxSelectNumber = 1;
-      const photoViewPicker = new picker.PhotoViewPicker();
-      const result = await photoViewPicker.select(photoSelectOptions);
-      if (result.photoUris.length > 0) {
-        AppStorage.setOrCreate<string>('bgImage', result.photoUris[0]);
-        await this.storageService.setBgImage(result.photoUris[0]);
-        promptAction.showToast({ message: '背景图片已更换', duration: 1500 });
-      }
-    } catch (e) {
-      console.error('Pick background image error:', e);
-      promptAction.showToast({ message: '选择图片失败', duration: 1500 });
-    }
-  }
-
-  async clearBgImage() {
-    AppStorage.setOrCreate<string>('bgImage', '');
-    await this.storageService.setBgImage('');
-    promptAction.showToast({ message: '已恢复默认背景', duration: 1500 });
-  }
-
-  async setBgOpacity(opacity: number) {
-    AppStorage.setOrCreate<number>('bgOpacity', opacity);
-    await this.storageService.setBgOpacity(opacity);
-  }
-
-  // ========== MiniPlayer 辅助方法 ==========
   getMiniBlurScale(): number {
     if (!this.miniSupportsImmersive) {
       return 0.3;
@@ -473,17 +338,45 @@ struct Index {
     }
   }
 
+  openSettings() {
+    router.pushUrl({ url: 'pages/SettingsPage' });
+  }
+
+  handleLogout() {
+    // 登录能力在 Phase 2 接入，这里先给出明确提示，避免假装已退出。
+    promptAction.showToast({ message: '演示账号模式下暂不支持退出', duration: 1500 });
+  }
+
+  getBarFloatingStyle(): HdsTabsFloatingStyle {
+    const style: HdsTabsFloatingStyle = {
+      barBottomMargin: 24,
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: this.customMaterialLevel
+      }
+    };
+    if (this.miniCurrentSong) {
+      style.miniBar = {
+        miniBarBuilder: (): void => this.MiniBarBuilder(),
+        onBarStyleChange: (miniBarStyle: HdsBarStyle): void => {
+          this.miniBarExpanded = miniBarStyle === HdsBarStyle.EXPAND;
+        }
+      };
+    }
+    return style;
+  }
+
   @Builder
   MiniBarBuilder() {
     if (this.miniCurrentSong) {
       if (this.miniBarExpanded) {
-        // 展开态：完整布局（封面 + 歌名 + 播放控制）
         Row() {
           Image(thumbnail(this.miniCurrentSong.coverUrl, 100, 100))
-            .width(50)
-            .height(50)
-            .borderRadius(25)
+            .width(46)
+            .height(46)
+            .borderRadius(23)
             .objectFit(ImageFit.Cover)
+            .backgroundColor(this.accentLight)
 
           Column() {
             Text(this.miniCurrentSong.name || '未知歌曲')
@@ -501,8 +394,11 @@ struct Index {
               .margin({ top: 2 })
           }
           .layoutWeight(1)
-          .margin({ left: 16 })
+          .margin({ left: 12 })
           .alignItems(HorizontalAlign.Start)
+          .onClick(() => {
+            router.pushUrl({ url: 'pages/PlayPage' });
+          })
 
           Button() {
             if (this.miniPlayerState === PlayerState.PLAYING) {
@@ -525,265 +421,408 @@ struct Index {
               this.playerService.play();
             }
           })
-
-          Button() {
-            SymbolGlyph($r('sys.symbol.forward_end_fill'))
-              .fontSize(18)
-              .fontColor([this.textPrimary])
-          }
-          .width(44)
-          .height(44)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            this.playerService.playNext();
-          })
-
-          Button() {
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(18)
-              .fontColor([this.textTertiary])
-          }
-          .width(36)
-          .height(36)
-          .backgroundColor('transparent')
-          .margin({ left: 2 })
-          .onClick(() => {
-            router.pushUrl({ url: 'pages/PlayPage' });
-          })
         }
         .width('100%')
-        .height(64)
-        .padding({ left: 16, right: 8 })
-        .justifyContent(FlexAlign.Start)
+        .height(60)
+        .padding({ left: 12, right: 4 })
         .alignItems(VerticalAlign.Center)
       } else {
-        // 折叠态：居中显示封面
         Row() {
           Image(thumbnail(this.miniCurrentSong.coverUrl, 100, 100))
-            .width(50)
-            .height(50)
-            .borderRadius(25)
+            .width(46)
+            .height(46)
+            .borderRadius(23)
             .objectFit(ImageFit.Cover)
+            .backgroundColor(this.accentLight)
         }
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/PlayPage' });
+        })
       }
     }
   }
 
-  // ========== Builders ==========
+  @Builder
+  SearchPill() {
+    Row() {
+      SymbolGlyph($r('sys.symbol.magnifyingglass'))
+        .fontSize(18)
+        .fontColor([this.textTertiary])
+      Text('搜索歌曲、歌手、专辑')
+        .fontSize(14)
+        .fontColor(this.textTertiary)
+        .layoutWeight(1)
+        .margin({ left: 8 })
+    }
+    .width('100%')
+    .height(46)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor(this.bgSecondary)
+    .borderRadius(23)
+    .onClick(() => {
+      this.tabsController.changeIndex(1);
+    })
+  }
+
+  @Builder
+  SectionTitle(title: string) {
+    Row() {
+      Text(title)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.textPrimary)
+      Blank()
+    }
+    .width('100%')
+    .padding({ top: 26, bottom: 12 })
+  }
+
+  @Builder
+  FeaturedCard() {
+    if (this.featured) {
+      Stack({ alignContent: Alignment.BottomStart }) {
+        Image(thumbnail(this.featured.coverUrl, 800, 450))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .backgroundColor(this.accentLight)
+
+        Column()
+          .width('100%')
+          .height('100%')
+          .linearGradient({
+            angle: 180,
+            colors: [['#00000000', 0.0], ['#B30B0C10', 0.62], ['#E60B0C10', 1.0]]
+          })
+
+        Row() {
+          Column() {
+            Text('精选推荐')
+              .fontSize(11)
+              .fontColor('#FFD7D9')
+            Text(this.featured.name)
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#FFFFFF')
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ top: 4 })
+            Text(this.featured.isAlbum ? (this.featured.creator || '清听精选') : `${this.featured.songCount} 首`)
+              .fontSize(12)
+              .fontColor('#E8E3DE')
+              .margin({ top: 4 })
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+
+          Button() {
+            SymbolGlyph($r('sys.symbol.play_fill'))
+              .fontSize(24)
+              .fontColor(['#FFFFFF'])
+          }
+          .width(50)
+          .height(50)
+          .borderRadius(25)
+          .backgroundColor(this.accent)
+          .onClick(() => {
+            if (this.featured) {
+              this.openPlaylist(this.featured);
+            }
+          })
+        }
+        .width('100%')
+        .padding(18)
+        .alignItems(VerticalAlign.Bottom)
+      }
+      .width('100%')
+      .aspectRatio(16 / 9)
+      .borderRadius(20)
+      .clip(true)
+      .onClick(() => {
+        if (this.featured) {
+          this.openPlaylist(this.featured);
+        }
+      })
+    }
+  }
+
   @Builder
   PlaylistCard(playlist: PlaylistInfo) {
     Column() {
-      // 封面：缩略图
       Image(thumbnail(playlist.coverUrl, 300, 300))
         .width(150)
         .height(150)
-        .borderRadius(8)
+        .borderRadius(14)
         .objectFit(ImageFit.Cover)
+        .backgroundColor(this.accentLight)
 
       Text(playlist.name)
-        .fontSize(13)
+        .fontSize(14)
         .fontColor(this.textPrimary)
-        .maxLines(2)
+        .fontWeight(FontWeight.Medium)
+        .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
         .margin({ top: 8 })
-      Row() {
-        if (playlist.isAlbum) {
-          Text(playlist.creator || '')
-            .fontSize(11)
-            .fontColor(this.textTertiary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        } else {
-          Text(`${playlist.songCount}首`)
-            .fontSize(11)
-            .fontColor(this.textTertiary)
-          if (playlist.playCount > 0) {
-            Text(` · ${this.formatPlayCount(playlist.playCount)}`)
-              .fontSize(11)
-              .fontColor(this.textTertiary)
-          }
-        }
-      }
-      .width('100%')
-      .margin({ top: 2 })
+
+      Text(playlist.isAlbum ? (playlist.creator || '专辑') :
+        `${playlist.songCount} 首${playlist.playCount > 0 ? ' · ' + this.formatPlayCount(playlist.playCount) : ''}`)
+        .fontSize(12)
+        .fontColor(this.textTertiary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+        .margin({ top: 3 })
     }
     .width(150)
-    .margin({ right: 12 })
+    .margin({ right: 14 })
     .onClick(() => {
       this.openPlaylist(playlist);
     })
   }
 
-  // 根据歌单名生成占位色
-  getPlaceholderColor(name: string): string {
-    const colors: string[] = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-      '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
-      '#BB8FCE', '#85C1E9', '#F0B27A', '#82E0AA'
-    ];
-    let hash: number = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  }
-
   @Builder
-  SongCard(song: Song, songs: Song[] | undefined, index: number) {
+  SongCard(song: Song, songs: Song[], index: number) {
     Column() {
-      // 封面：缩略图
       Image(thumbnail(song.coverUrl, 300, 300))
         .width(140)
         .height(140)
-        .borderRadius(8)
+        .borderRadius(14)
         .objectFit(ImageFit.Cover)
+        .backgroundColor(this.accentLight)
+
       Text(song.name)
-        .fontSize(13)
-        .fontColor(this.textPrimary)
-        .maxLines(2)
+        .fontSize(14)
+        .fontColor(song.id === this.currentPlayingId ? this.accent : this.textPrimary)
+        .fontWeight(FontWeight.Medium)
+        .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
         .margin({ top: 8 })
-      Text(`${song.artist}`)
-        .fontSize(11)
+
+      Text(song.artist)
+        .fontSize(12)
         .fontColor(this.textTertiary)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
-        .margin({ top: 2 })
+        .margin({ top: 3 })
     }
     .width(140)
-    .margin({ right: 12 })
+    .margin({ right: 14 })
     .onClick(() => {
-      if (songs) {
-        this.playSongAt(songs, index);
-      }
+      this.playSongsAt(songs, index);
     })
   }
 
   @Builder
-  SectionBlock(section: RecommendationSection) {
-    Column() {
-      Row() {
-        Text(section.title)
-          .fontSize(18)
-          .fontColor(this.textPrimary)
-          .fontWeight(FontWeight.Bold)
-        Blank()
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 24, bottom: 12 })
-
-      List() {
-        if (section.songs && section.songs.length > 0) {
-          ForEach(section.songs, (song: Song, index: number) => {
-            ListItem() {
-              this.SongCard(song, section.songs, index)
-            }
-          })
-        } else {
-          ForEach(section.playlists, (playlist: PlaylistInfo) => {
-            ListItem() {
-              this.PlaylistCard(playlist)
-            }
-          })
-        }
-      }
-      .listDirection(Axis.Horizontal)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-      .width('100%')
-      .height(220)
-      .padding({ left: 16, right: 16 })
+  HomeLoadingCard() {
+    Row() {
+      LoadingProgress()
+        .width(22)
+        .height(22)
+        .color(this.accent)
+      Text('正在加载推荐…')
+        .fontSize(13)
+        .fontColor(this.textSecondary)
+        .margin({ left: 10 })
     }
+    .width('100%')
+    .height(64)
+    .padding({ left: 18, right: 18 })
+    .backgroundColor(this.bgSecondary)
+    .borderRadius(16)
   }
 
-  // ========== 推荐 Tab 内容 ==========
   @Builder
-  RecommendTab() {
+  HomeErrorCard() {
     Column() {
-      Row() {}.height(70).width('100%')
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress()
-            .width(40)
-            .height(40)
-          Text('加载推荐中...')
-            .fontSize(14)
-            .fontColor(this.textTertiary)
-            .margin({ top: 12 })
-        }
+      Text('网络暂时不可用')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.textPrimary)
+      Text('检查网络后重试，已加载的内容会保留')
+        .fontSize(12)
+        .fontColor(this.textTertiary)
+        .margin({ top: 6 })
+      Button('重新加载')
+        .height(38)
+        .fontSize(14)
+        .fontColor('#FFFFFF')
+        .backgroundColor(this.accent)
+        .borderRadius(19)
+        .margin({ top: 14 })
+        .onClick(() => {
+          this.loadHome();
+        })
+    }
+    .width('100%')
+    .padding({ top: 22, bottom: 22 })
+    .backgroundColor(this.bgSecondary)
+    .borderRadius(20)
+  }
+
+  @Builder
+  HomeTab() {
+    Column() {
+      Row()
+        .height(80)
         .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else {
-        List() {
-          ForEach(this.sections, (section: RecommendationSection) => {
-            ListItem() {
-              this.SectionBlock(section)
-            }
-          })
-          ListItem() {
-            Column() {
-              Blank().height(64)
+
+      Scroll() {
+        Column() {
+          Column() {
+            Text(this.greeting())
+              .fontSize(13)
+              .fontColor(this.textSecondary)
+            Text('听见每一天')
+              .fontSize(30)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.textPrimary)
+              .margin({ top: 4 })
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+          .padding({ top: 4, bottom: 16 })
+
+          this.SearchPill()
+
+          Column() {
+            if (this.isLoadingHome && this.featured === null) {
+              this.HomeLoadingCard()
+            } else if (this.homeError) {
+              this.HomeErrorCard()
+            } else {
+              this.FeaturedCard()
             }
           }
+          .margin({ top: 18 })
+
+          if (this.history.length > 0) {
+            this.SectionTitle('最近播放')
+            List() {
+              ForEach(this.history.slice(0, 10), (song: Song, index: number) => {
+                ListItem() {
+                  this.SongCard(song, this.history, index)
+                }
+              })
+            }
+            .listDirection(Axis.Horizontal)
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .width('100%')
+            .height(200)
+          }
+
+          if (this.recommendPlaylists.length > 0) {
+            this.SectionTitle('为你推荐')
+            List() {
+              ForEach(this.recommendPlaylists, (playlist: PlaylistInfo) => {
+                ListItem() {
+                  this.PlaylistCard(playlist)
+                }
+              })
+            }
+            .listDirection(Axis.Horizontal)
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .width('100%')
+            .height(210)
+          }
+
+          if (this.hotPlaylists.length > 0) {
+            this.SectionTitle('精选歌单')
+            List() {
+              ForEach(this.hotPlaylists, (playlist: PlaylistInfo) => {
+                ListItem() {
+                  this.PlaylistCard(playlist)
+                }
+              })
+            }
+            .listDirection(Axis.Horizontal)
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .width('100%')
+            .height(210)
+          }
+
+          Blank()
+            .height(120)
         }
         .width('100%')
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .cachedCount(0)
+        .padding({ left: 20, right: 20 })
       }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(this.bgPrimary)
   }
 
-  // ========== 搜索 Tab 内容 ==========
   @Builder
   SearchTab() {
     Column() {
-      Row() {}.height(100).width('100%')
-      // 搜索框
+      Row()
+        .height(110)
+        .width('100%')
+
       Row() {
-        TextInput({ placeholder: '搜索歌曲、歌手、专辑', text: this.searchKeyword })
-          .layoutWeight(1)
-          .height(40)
-          .backgroundColor(this.bgSecondary)
-          .borderRadius(20)
-          .padding({ left: 16, right: 16 })
-          .fontColor(this.textPrimary)
-          .placeholderColor(this.textTertiary)
-          .onChange((value: string) => {
-            this.searchKeyword = value;
-            if (value === '') {
-              this.showHistory = true;
-              this.searchResults = [];
-            }
-          })
-          .onSubmit(() => {
-            this.searchMusic();
-          })
+        Row() {
+          SymbolGlyph($r('sys.symbol.magnifyingglass'))
+            .fontSize(18)
+            .fontColor([this.textTertiary])
+          TextInput({ placeholder: '搜索歌曲、歌手、专辑', text: this.searchKeyword })
+            .layoutWeight(1)
+            .height(48)
+            .fontSize(14)
+            .fontColor(this.textPrimary)
+            .placeholderColor(this.textTertiary)
+            .backgroundColor(Color.Transparent)
+            .padding({ left: 8, right: 8 })
+            .onChange((value: string) => {
+              this.searchKeyword = value;
+              if (value === '') {
+                this.showHistory = true;
+                this.searchResults = [];
+                this.searchError = false;
+                this.searchTotal = 0;
+              }
+            })
+            .onSubmit(() => {
+              this.runSearch();
+            })
+        }
+        .layoutWeight(1)
+        .height(48)
+        .padding({ left: 14, right: 6 })
+        .backgroundColor(this.bgSecondary)
+        .borderRadius(24)
 
         Button('搜索')
-          .height(40)
-          .margin({ left: 12 })
+          .height(48)
+          .width(70)
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#FFFFFF')
           .backgroundColor(this.accent)
-          .borderRadius(20)
+          .borderRadius(24)
+          .margin({ left: 10 })
+          .enabled(!this.searchLoading)
+          .opacity(this.searchLoading ? 0.6 : 1)
           .onClick(() => {
-            this.searchMusic();
+            this.runSearch();
           })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+      .padding({ left: 20, right: 20, bottom: 12 })
 
-      // 内容区域
       Column() {
         if (this.showHistory && this.searchHistory.length > 0 && this.searchResults.length === 0) {
           Row() {
@@ -792,26 +831,27 @@ struct Index {
               .fontWeight(FontWeight.Bold)
               .fontColor(this.textPrimary)
             Blank()
-            Button('清空')
+            Text('清空')
               .fontSize(12)
-              .height(28)
-              .backgroundColor('transparent')
               .fontColor(this.textTertiary)
+              .height(32)
+              .padding({ left: 8, right: 8 })
               .onClick(() => {
                 this.clearSearchHistory();
               })
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 16, bottom: 12 })
+          .padding({ top: 8, bottom: 12 })
 
           Flex({ wrap: FlexWrap.Wrap }) {
             ForEach(this.searchHistory, (keyword: string) => {
-              Button(keyword)
+              Text(keyword)
                 .fontSize(13)
-                .height(32)
-                .backgroundColor(this.bgSecondary)
-                .borderRadius(16)
                 .fontColor(this.textPrimary)
+                .height(34)
+                .padding({ left: 14, right: 14 })
+                .backgroundColor(this.bgSecondary)
+                .borderRadius(17)
                 .margin({ right: 8, bottom: 8 })
                 .onClick(() => {
                   this.selectHistory(keyword);
@@ -819,50 +859,90 @@ struct Index {
             })
           }
           .width('100%')
-          .padding({ left: 16, right: 16 })
         }
 
-        if (this.searchResults.length > 0) {
-          Row() {
-            Text(`找到 ${this.totalCount} 首歌曲`)
+        if (this.searchLoading && this.searchResults.length === 0) {
+          Column() {
+            LoadingProgress()
+              .width(36)
+              .height(36)
+              .color(this.accent)
+            Text('搜索中…')
+              .fontSize(13)
+              .fontColor(this.textTertiary)
+              .margin({ top: 10 })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else if (this.searchError) {
+          Column() {
+            Text('网络连接失败')
+              .fontSize(15)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.textPrimary)
+            Text('请检查网络后重试')
+              .fontSize(12)
+              .fontColor(this.textTertiary)
+              .margin({ top: 6 })
+            Button('重试')
+              .height(38)
               .fontSize(14)
+              .fontColor('#FFFFFF')
+              .backgroundColor(this.accent)
+              .borderRadius(19)
+              .margin({ top: 14 })
+              .onClick(() => {
+                this.runSearch();
+              })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else if (this.searchResults.length > 0) {
+          Row() {
+            Text(`找到 ${this.searchTotal} 首歌曲`)
+              .fontSize(13)
               .fontColor(this.textTertiary)
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 8 })
+          .padding({ top: 4, bottom: 8 })
 
           List() {
             ForEach(this.searchResults, (song: Song, index: number) => {
               ListItem() {
                 Row() {
-                  Image(thumbnail(song.coverUrl, 100, 100))
+                  Image(thumbnail(song.coverUrl, 120, 120))
                     .width(48)
                     .height(48)
-                    .borderRadius(6)
+                    .borderRadius(10)
                     .objectFit(ImageFit.Cover)
+                    .backgroundColor(this.accentLight)
                     .margin({ right: 12 })
 
                   Column() {
                     Text(song.name)
                       .fontSize(15)
                       .fontColor(song.id === this.currentPlayingId ? this.accent : this.textPrimary)
+                      .fontWeight(song.id === this.currentPlayingId ? FontWeight.Bold : FontWeight.Medium)
                       .maxLines(1)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
-
                     Text(`${song.artist} · ${song.album}`)
                       .fontSize(12)
                       .fontColor(this.textTertiary)
                       .maxLines(1)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
-                      .margin({ top: 2 })
+                      .margin({ top: 3 })
                   }
-                  .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start)
                 }
                 .width('100%')
-                .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+                .height(64)
+                .padding({ left: 14, right: 14 })
+                .backgroundColor(this.bgSecondary)
                 .onClick(() => {
-                  this.playSong(song, index);
+                  this.playSearchResult(song, index);
                 })
               }
             })
@@ -871,10 +951,11 @@ struct Index {
               ListItem() {
                 Row() {
                   LoadingProgress()
-                    .width(24)
-                    .height(24)
-                  Text('加载中...')
-                    .fontSize(14)
+                    .width(22)
+                    .height(22)
+                    .color(this.accent)
+                  Text('加载中…')
+                    .fontSize(13)
                     .fontColor(this.textTertiary)
                     .margin({ left: 8 })
                 }
@@ -882,10 +963,22 @@ struct Index {
                 .height(50)
                 .justifyContent(FlexAlign.Center)
               }
-            } else if (this.searchResults.length < this.totalCount) {
+            } else if (this.loadMoreFailed) {
+              ListItem() {
+                Text('加载失败，点击重试')
+                  .fontSize(13)
+                  .fontColor(this.accent)
+                  .width('100%')
+                  .height(50)
+                  .textAlign(TextAlign.Center)
+                  .onClick(() => {
+                    this.loadMore();
+                  })
+              }
+            } else if (this.searchResults.length < this.searchTotal) {
               ListItem() {
                 Text('加载更多')
-                  .fontSize(14)
+                  .fontSize(13)
                   .fontColor(this.accent)
                   .width('100%')
                   .height(50)
@@ -895,203 +988,81 @@ struct Index {
                   })
               }
             }
+
+            ListItem() {
+              Row().width('100%').height(120)
+            }
           }
-          .layoutWeight(1)
           .width('100%')
-        } else if (!this.showHistory && !this.searchLoading) {
+          .layoutWeight(1)
+          .borderRadius(20)
+          .clip(true)
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+        } else if (!this.showHistory) {
           Column() {
-            Text('暂无搜索结果')
-              .fontSize(14)
+            Text('没有找到相关歌曲')
+              .fontSize(15)
+              .fontColor(this.textPrimary)
+            Text('换一个关键词试试')
+              .fontSize(12)
               .fontColor(this.textTertiary)
+              .margin({ top: 6 })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else {
+          Column() {
+            Text('输入关键词开始搜索')
+              .fontSize(15)
+              .fontColor(this.textPrimary)
+            Text('也可以先看看首页的精选推荐')
+              .fontSize(12)
+              .fontColor(this.textTertiary)
+              .margin({ top: 6 })
           }
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         }
       }
-      .layoutWeight(1)
       .width('100%')
-      .backgroundColor(this.bgPrimary)
+      .layoutWeight(1)
+      .padding({ left: 20, right: 20 })
     }
     .width('100%')
     .height('100%')
     .backgroundColor(this.bgPrimary)
   }
 
-  // ========== 我的 Tab 内容 ==========
-  @Builder
-  MyProfileTab() {
-    Column() {
-      Row() {}.height(70).width('100%')
-      if (this.isLoading) {
-        Column() {
-          LoadingProgress()
-            .width(40)
-            .height(40)
-          Text('加载中...')
-            .fontSize(14)
-            .fontColor(this.textTertiary)
-            .margin({ top: 12 })
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else {
-        Scroll() {
-          Column() {
-            // 用户信息头部
-            Row() {
-              SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
-                .fontSize(64)
-                .fontColor([this.textSecondary])
-
-              Column() {
-                Text('我的音乐')
-                  .fontSize(22)
-                  .fontColor(this.textPrimary)
-                  .fontWeight(FontWeight.Bold)
-                Text('收藏与播放记录')
-                  .fontSize(13)
-                  .fontColor(this.textTertiary)
-                  .margin({ top: 4 })
-              }
-              .alignItems(HorizontalAlign.Start)
-              .margin({ left: 16 })
-            }
-            .width('100%')
-            .padding({ left: 20, right: 20, top: 16, bottom: 8 })
-            .alignItems(VerticalAlign.Center)
-
-            // 我的收藏、最近播放板块
-            ForEach(this.mySections, (section: RecommendationSection) => {
-              this.SectionBlock(section)
-            })
-
-            // 背景设置板块
-            Column() {
-              Row() {
-                Text('背景设置')
-                  .fontSize(18)
-                  .fontColor(this.textPrimary)
-                  .fontWeight(FontWeight.Bold)
-                Blank()
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 32, bottom: 12 })
-
-              // 当前背景预览
-              if (this.bgImage) {
-                Stack() {
-                  Image(this.bgImage)
-                    .width('100%')
-                    .height(120)
-                    .objectFit(ImageFit.Cover)
-                    .borderRadius(12)
-                  Row()
-                    .width('100%')
-                    .height('100%')
-                    .backgroundColor(this.isDark ? '#000000' : '#FFFFFF')
-                    .opacity(this.bgOpacity)
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16 })
-                .margin({ bottom: 12 })
-              }
-
-              Button('📷  选择背景图片')
-                .width('100%')
-                .height(44)
-                .backgroundColor(this.accent)
-                .borderRadius(22)
-                .fontColor('#FFFFFF')
-                .fontSize(15)
-                .margin({ left: 16, right: 16 })
-                .onClick(() => {
-                  this.pickBgImage();
-                })
-
-              if (this.bgImage) {
-                Row() {
-                  Text('透明度')
-                    .fontSize(14)
-                    .fontColor(this.textSecondary)
-                  Slider({
-                    value: this.bgOpacity * 100,
-                    min: 5,
-                    max: 60,
-                    step: 5
-                  })
-                    .layoutWeight(1)
-                    .margin({ left: 12 })
-                    .onChange((value: number) => {
-                      this.setBgOpacity(value / 100);
-                    })
-                  Text(`${Math.round(this.bgOpacity * 100)}%`)
-                    .fontSize(13)
-                    .fontColor(this.textSecondary)
-                    .width(40)
-                    .textAlign(TextAlign.End)
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 16 })
-
-                Button('恢复默认')
-                  .width('100%')
-                  .height(40)
-                  .backgroundColor('transparent')
-                  .borderRadius(20)
-                  .fontColor(this.accent)
-                  .fontSize(14)
-                  .margin({ left: 16, right: 16, top: 8 })
-                  .onClick(() => {
-                    this.clearBgImage();
-                  })
-              }
-            }
-            .width('100%')
-            .margin({ top: 8 })
-
-            // 底部留白：浮动页签
-            Blank()
-              .height(64)
-          }
-          .width('100%')
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-      }
-    }
-    .width('100%')
-    .height('100%')
-  }
-
   build() {
     Stack() {
-      // 背景图片层（在 HdsNavigation 下方）
       if (this.bgImage) {
         Image(this.bgImage)
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
-        // 半透明遮罩（保持内容可读性）
         Row()
           .width('100%')
           .height('100%')
-          .backgroundColor(this.isDark ? '#000000' : '#FFFFFF')
+          .backgroundColor(this.isDark ? '#000000' : '#F7F6F2')
           .opacity(this.bgOpacity)
       }
 
       HdsNavigation() {
         HdsTabs({ controller: this.tabsController }) {
           TabContent() {
-            this.RecommendTab()
+            this.HomeTab()
           }
           .tabBar(new BottomTabBarStyle({
             normal: TAB_CONFIG[0].symbolGlyph,
             selected: TAB_CONFIG[0].symbolGlyph1
-          }, TAB_CONFIG[0].label))
+          }, TAB_CONFIG[0].label).labelStyle({
+            selectedColor: TAB_SELECTED_COLOR,
+            unselectedColor: TAB_UNSELECTED_COLOR,
+            font: { size: 12, weight: FontWeight.Medium }
+          }))
 
           TabContent() {
             this.SearchTab()
@@ -1099,15 +1070,61 @@ struct Index {
           .tabBar(new BottomTabBarStyle({
             normal: TAB_CONFIG[1].symbolGlyph,
             selected: TAB_CONFIG[1].symbolGlyph1
-          }, TAB_CONFIG[1].label))
+          }, TAB_CONFIG[1].label).labelStyle({
+            selectedColor: TAB_SELECTED_COLOR,
+            unselectedColor: TAB_UNSELECTED_COLOR,
+            font: { size: 12, weight: FontWeight.Medium }
+          }))
 
           TabContent() {
-            this.MyProfileTab()
+            FavoritesView({
+              favorites: this.favorites,
+              history: this.history,
+              currentPlayingId: this.currentPlayingId,
+              onPlaySong: (song: Song, songs: Song[], index: number): void => {
+                this.playHistorySong(song, songs, index);
+              },
+              onClearHistory: (): void => {
+                this.clearHistory();
+              },
+              onGoSearch: (): void => {
+                this.tabsController.changeIndex(1);
+              }
+            })
           }
           .tabBar(new BottomTabBarStyle({
             normal: TAB_CONFIG[2].symbolGlyph,
             selected: TAB_CONFIG[2].symbolGlyph1
-          }, TAB_CONFIG[2].label))
+          }, TAB_CONFIG[2].label).labelStyle({
+            selectedColor: TAB_SELECTED_COLOR,
+            unselectedColor: TAB_UNSELECTED_COLOR,
+            font: { size: 12, weight: FontWeight.Medium }
+          }))
+
+          TabContent() {
+            ProfileView({
+              nickname: this.nickname,
+              favoriteCount: this.favorites.length,
+              historyCount: this.history.length,
+              onOpenSettings: (): void => {
+                this.openSettings();
+              },
+              onLogout: (): void => {
+                this.handleLogout();
+              },
+              onOpenFavorites: (): void => {
+                this.tabsController.changeIndex(2);
+              }
+            })
+          }
+          .tabBar(new BottomTabBarStyle({
+            normal: TAB_CONFIG[3].symbolGlyph,
+            selected: TAB_CONFIG[3].symbolGlyph1
+          }, TAB_CONFIG[3].label).labelStyle({
+            selectedColor: TAB_SELECTED_COLOR,
+            unselectedColor: TAB_UNSELECTED_COLOR,
+            font: { size: 12, weight: FontWeight.Medium }
+          }))
         }
         .barOverlap(true)
         .vertical(false)
@@ -1115,28 +1132,22 @@ struct Index {
         .scrollable(false)
         .animationDuration(0)
         .layoutWeight(1)
-        .barFloatingStyle({
-          barBottomMargin: 24,
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: this.customMaterialLevel
-          },
-          miniBar: {
-            miniBarBuilder: (): void => this.MiniBarBuilder(),
-            onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
-              this.miniBarExpanded = miniBarStyle === HdsBarStyle.EXPAND;
-            }
-          }
-        })
+        .barFloatingStyle(this.getBarFloatingStyle())
         .onChange((index: number) => {
           this.currentTabIndex = index;
+          if (index === 2 || index === 3) {
+            this.refreshLibrary();
+          }
+          if (index === 0 && !this.isLoadingHome && this.recommendPlaylists.length === 0 &&
+            this.hotPlaylists.length === 0) {
+            this.loadHome();
+          }
         })
       }
       .titleBar({
         avoidLayoutSafeArea: true,
         content: {
-          title: { mainTitle: '音乐' },
-          menu: this.menus
+          title: { mainTitle: '清听' }
         },
         style: {
           scrollEffectOpts: {
@@ -1146,8 +1157,8 @@ struct Index {
             blurEffectiveEndOffset: LengthMetrics.vp(40)
           },
           blurStrategy: BlurStrategy.ADAPTIVE,
-          originalStyle: { backgroundStyle: { backgroundColor: '#00FFFFFF' } },
-          scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00FFFFFF' } },
+          originalStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
+          scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
           systemMaterialEffect: {
             materialType: hdsMaterial.MaterialType.IMMERSIVE,
             materialLevel: this.customMaterialLevel

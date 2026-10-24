@@ -43,6 +43,7 @@ export interface SearchResult {
   songs: Song[];
   total: number;
   page: number;
+  error?: boolean;
 }
 
 export interface LyricLine {

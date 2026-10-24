@@ -21,8 +21,8 @@ export default class EntryAbility extends UIAbility {
 
     // 初始化主题（从存储加载偏好）
     this.storageService.setContext(this.context);
-    const savedDark: boolean = await this.storageService.getThemeDark();
-    this.themeManager.init(savedDark);
+    // 主界面固定浅色方案，不跟随系统深色
+    this.themeManager.init(false);
 
     // 加载沉浸光感效果档位
     const savedLevel: EffectLevel = await this.storageService.getEffectLevel();
