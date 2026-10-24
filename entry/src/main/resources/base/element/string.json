@@ -2,19 +2,19 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "清听音乐播放器"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "清听欢迎与登录"
     },
     {
       "name": "EntryAbility_label",
-      "value": "网易云音乐"
+      "value": "清听"
     },
     {
       "name": "internet_permission_reason",
-      "value": "用于访问网易云音乐API获取歌曲信息"
+      "value": "用于在线搜索与播放音乐"
     },
     {
       "name": "background_running_reason",
