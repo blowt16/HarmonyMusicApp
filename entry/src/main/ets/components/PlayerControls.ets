@@ -3,9 +3,9 @@ import { PlayMode, PlayerState, Song } from '../models/MusicModel';
 
 @Component
 export struct PlayerControls {
-  @StorageLink('textSecondary') textSecondary: string = '#000000';
-  @StorageLink('accent') accent: string = '#FF6B6B';
-  @StorageLink('isDark') isDark: boolean = false;
+  @StorageLink('playerText') playerText: string = '#F5F5F7';
+  @StorageLink('playerMuted') playerMuted: string = '#C9C7D0';
+  @StorageLink('playerAccent') playerAccent: string = '#FF6B72';
 
   playlistAction: () => void = () => {};
 
@@ -63,14 +63,17 @@ export struct PlayerControls {
       Row() {
         Text(this.formatTime(this.currentPosition))
           .fontSize(12)
-          .fontColor(this.textSecondary)
+          .fontColor(this.playerMuted)
 
         Slider({
           value: this.currentPosition,
           min: 0,
-          max: this.duration,
+          max: this.duration > 0 ? this.duration : 1,
           step: 1
         })
+          .selectedColor(this.playerAccent)
+          .trackColor('#33FFFFFF')
+          .blockColor('#FFFFFF')
           .layoutWeight(1)
           .margin({ left: 8, right: 8 })
           .onChange((value: number) => {
@@ -79,92 +82,102 @@ export struct PlayerControls {
 
         Text(this.formatTime(this.duration))
           .fontSize(12)
-          .fontColor(this.textSecondary)
+          .fontColor(this.playerMuted)
       }
       .width('100%')
-      .padding({ left: 16, right: 16 })
+      .padding({ left: 24, right: 24 })
 
-      // 控制按钮行 — 全部使用简约矢量图标
+      // 控制按钮行
       Row() {
-        // 播放模式
         Button() {
           if (this.playMode === PlayMode.SEQUENCE) {
             SymbolGlyph($r('sys.symbol.list_bullet'))
               .fontSize(22)
-              .fontColor([this.textSecondary])
+              .fontColor([this.playerMuted])
           } else if (this.playMode === PlayMode.LOOP) {
             SymbolGlyph($r('sys.symbol.repeat'))
               .fontSize(22)
-              .fontColor([this.accent])
+              .fontColor([this.playerAccent])
           } else if (this.playMode === PlayMode.SINGLE) {
             SymbolGlyph($r('sys.symbol.repeat_1'))
               .fontSize(22)
-              .fontColor([this.accent])
+              .fontColor([this.playerAccent])
           } else if (this.playMode === PlayMode.RANDOM) {
             SymbolGlyph($r('sys.symbol.shuffle'))
               .fontSize(22)
-              .fontColor([this.textSecondary])
+              .fontColor([this.playerMuted])
           }
         }
-          .width(40)
-          .height(40)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            this.togglePlayMode();
-          })
+        .width(48)
+        .height(48)
+        .backgroundColor('transparent')
+        .accessibilityText('切换播放模式')
+        .onClick(() => {
+          this.togglePlayMode();
+        })
 
-        // 上一曲
         Button() {
-          this.PrevIcon()
+          SymbolGlyph($r('sys.symbol.backward_fill'))
+            .fontSize(26)
+            .fontColor([this.playerText])
         }
-          .width(50)
-          .height(50)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            this.playerService.playPrevious();
-          })
+        .width(50)
+        .height(50)
+        .backgroundColor('transparent')
+        .accessibilityText('上一首')
+        .onClick(() => {
+          this.playerService.playPrevious();
+        })
 
-        // 播放/暂停 — 大圆按钮
         Button() {
           if (this.currentState === PlayerState.PLAYING) {
-            this.PauseIcon('#FFFFFF')
+            SymbolGlyph($r('sys.symbol.pause_fill'))
+              .fontSize(34)
+              .fontColor(['#FFFFFF'])
           } else {
-            this.PlayIcon('#FFFFFF')
+            SymbolGlyph($r('sys.symbol.play_fill'))
+              .fontSize(34)
+              .fontColor(['#FFFFFF'])
           }
         }
-          .width(60)
-          .height(60)
-          .borderRadius(30)
-          .backgroundColor(this.accent)
-          .onClick(() => {
-            if (this.currentState === PlayerState.PLAYING) {
-              this.playerService.pause();
-            } else {
-              this.playerService.play();
-            }
-          })
+        .width(66)
+        .height(66)
+        .borderRadius(33)
+        .backgroundColor(this.playerAccent)
+        .accessibilityText(this.currentState === PlayerState.PLAYING ? '暂停' : '播放')
+        .onClick(() => {
+          if (this.currentState === PlayerState.PLAYING) {
+            this.playerService.pause();
+          } else {
+            this.playerService.play();
+          }
+        })
 
-        // 下一曲
         Button() {
-          this.NextIcon()
+          SymbolGlyph($r('sys.symbol.forward_end_fill'))
+            .fontSize(26)
+            .fontColor([this.playerText])
         }
-          .width(50)
-          .height(50)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            this.playerService.playNext();
-          })
+        .width(50)
+        .height(50)
+        .backgroundColor('transparent')
+        .accessibilityText('下一首')
+        .onClick(() => {
+          this.playerService.playNext();
+        })
 
-        // 播放列表
         Button() {
-          this.ListIcon()
+          SymbolGlyph($r('sys.symbol.list_bullet'))
+            .fontSize(22)
+            .fontColor([this.playerMuted])
         }
-          .width(40)
-          .height(40)
-          .backgroundColor('transparent')
-          .onClick(() => {
-            this.playlistAction();
-          })
+        .width(48)
+        .height(48)
+        .backgroundColor('transparent')
+        .accessibilityText('播放列表')
+        .onClick(() => {
+          this.playlistAction();
+        })
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceAround)
@@ -172,65 +185,10 @@ export struct PlayerControls {
     }
   }
 
-  // ========== 系统 Symbol 图标 ==========
-
-  @Builder
-  PlayIcon(color: ResourceColor) {
-    SymbolGlyph($r('sys.symbol.play_fill'))
-      .fontSize(34)
-      .fontColor([color])
-  }
-
-  @Builder
-  PauseIcon(color: ResourceColor) {
-    SymbolGlyph($r('sys.symbol.pause_fill'))
-      .fontSize(34)
-      .fontColor([color])
-  }
-
-  @Builder
-  PrevIcon() {
-    SymbolGlyph($r('sys.symbol.backward_fill'))
-      .fontSize(26)
-      .fontColor([this.textSecondary])
-  }
-
-  @Builder
-  NextIcon() {
-    SymbolGlyph($r('sys.symbol.forward_end_fill'))
-      .fontSize(26)
-      .fontColor([this.textSecondary])
-  }
-
-  @Builder
-  PlayModeIcon(mode: PlayMode) {
-    if (mode === PlayMode.SEQUENCE) {
-      SymbolGlyph($r('sys.symbol.list_bullet'))
-        .fontSize(22)
-        .fontColor([this.textSecondary])
-    } else if (mode === PlayMode.LOOP) {
-      SymbolGlyph($r('sys.symbol.repeat'))
-        .fontSize(22)
-        .fontColor([this.accent])
-    } else if (mode === PlayMode.SINGLE) {
-      SymbolGlyph($r('sys.symbol.repeat_1'))
-        .fontSize(22)
-        .fontColor([this.accent])
-    } else if (mode === PlayMode.RANDOM) {
-      SymbolGlyph($r('sys.symbol.shuffle'))
-        .fontSize(22)
-        .fontColor([this.textSecondary])
-    }
-  }
-
-  @Builder
-  ListIcon() {
-    SymbolGlyph($r('sys.symbol.list_bullet'))
-      .fontSize(22)
-      .fontColor([this.textSecondary])
-  }
-
   formatTime(seconds: number): string {
+    if (!seconds || seconds < 0 || !isFinite(seconds)) {
+      return '00:00';
+    }
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;

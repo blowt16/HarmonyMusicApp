@@ -1,5 +1,8 @@
 import { EffectLevel } from '../models/MusicModel';
 import { StorageService } from '../services/StorageService';
+import { PlayerService } from '../services/PlayerService';
+import { LOCAL_DEMO_SONG, LOCAL_FALLBACK_SONGS } from '../services/MockData';
+import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import picker from '@ohos.file.picker';
 import {
@@ -24,6 +27,7 @@ struct EffectLevelOption {
   @Prop desc: string;
 
   private storageService: StorageService = StorageService.getInstance();
+  private playerService: PlayerService = PlayerService.getInstance();
 
   build() {
     Row() {
@@ -76,6 +80,7 @@ struct SettingsPage {
   @State customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
 
   private storageService: StorageService = StorageService.getInstance();
+  private playerService: PlayerService = PlayerService.getInstance();
 
   aboutToAppear(): void {
     const materialTypes: hdsMaterial.MaterialType[] = hdsMaterial.getSystemMaterialTypes();
@@ -226,6 +231,40 @@ struct SettingsPage {
   }
 
   @Builder
+  LocalDemoGroup() {
+    Column() {
+      Row() {
+        Column() {
+          Text('播放本地示例')
+            .fontSize(15)
+            .fontColor(this.textPrimary)
+            .fontWeight(FontWeight.Medium)
+          Text('断网演示 · 24 秒项目自生成环境音，无第三方版权')
+            .fontSize(11)
+            .fontColor(this.textTertiary)
+            .margin({ top: 4 })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        SymbolGlyph($r('sys.symbol.play_fill'))
+          .fontSize(18)
+          .fontColor([this.accent])
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+      .onClick(() => {
+        this.playerService.setPlaylist(LOCAL_FALLBACK_SONGS, 0);
+        this.playerService.playSong(LOCAL_DEMO_SONG);
+        router.pushUrl({ url: 'pages/PlayPage' });
+      })
+    }
+    .width('100%')
+    .backgroundColor(this.bgSecondary)
+    .borderRadius(20)
+  }
+
+  @Builder
   AboutGroup() {
     Column() {
       Row() {
@@ -283,6 +322,9 @@ struct SettingsPage {
 
             this.GroupTitle('背景设置')
             this.BackgroundGroup()
+
+            this.GroupTitle('本地示例')
+            this.LocalDemoGroup()
 
             this.GroupTitle('关于')
             this.AboutGroup()

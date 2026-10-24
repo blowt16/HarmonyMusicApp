@@ -7,6 +7,7 @@ import { StorageService } from '../services/StorageService';
 import { AuthService } from '../services/AuthService';
 import { ImageCacheService } from '../services/ImageCacheService';
 import { PlayerService } from '../services/PlayerService';
+import { WidgetService } from '../services/WidgetService';
 import { EffectLevel } from '../models/MusicModel';
 
 const DOMAIN = 0x0000;
@@ -29,6 +30,7 @@ export default class MainAbility extends UIAbility {
 
     this.storageService.setContext(this.context);
     this.authService.setContext(this.context);
+    this.playerService.setResourceManager(this.context.resourceManager);
 
     // onCreate 是异步的，窗口生命周期不会等待它完成；
     // 把登录检查保存为 Promise，窗口创建时再据此决定是否加载页面。
@@ -80,6 +82,10 @@ export default class MainAbility extends UIAbility {
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'MainAbility onNewWant');
+  }
+
+  onForeground(): void {
+    WidgetService.refreshAll();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

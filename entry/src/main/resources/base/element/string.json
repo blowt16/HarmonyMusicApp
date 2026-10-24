@@ -27,6 +27,22 @@
     {
       "name": "background_running_reason",
       "value": "用于在后台继续播放音乐"
+    },
+    {
+      "name": "MusicFormAbility_desc",
+      "value": "清听最近播放服务卡片"
+    },
+    {
+      "name": "MusicFormAbility_label",
+      "value": "清听卡片"
+    },
+    {
+      "name": "widget_display_name",
+      "value": "清听 · 最近播放"
+    },
+    {
+      "name": "widget_desc",
+      "value": "显示最近播放，点击继续听"
     }
   ]
 }

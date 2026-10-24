@@ -3,12 +3,12 @@ import { PlayerService } from '../services/PlayerService';
 
 @Component
 export struct LyricView {
-  @StorageLink('accent') accent: string = '#FF6B6B';
-  @StorageLink('isDark') isDark: boolean = false;
-  @StorageLink('bgSecondary') bgSecondary: string = '#F5F5F5';
+  @StorageLink('playerMuted') playerMuted: string = '#C9C7D0';
+  @StorageLink('playerAccent') playerAccent: string = '#FF6B72';
 
   @State lyrics: LyricLine[] = [];
   @State currentIndex: number = -1;
+  @State isLocalDemo: boolean = false;
 
   private playerService: PlayerService = PlayerService.getInstance();
   private scroller: Scroller = new Scroller();
@@ -28,11 +28,10 @@ export struct LyricView {
     this.playerService.addLyricChangeListener(this.lyricListener);
 
     this.songListener = (song: Song | null) => {
-      if (song) {
-        setTimeout(() => {
-          this.loadLyrics();
-        }, 500);
-      }
+      this.isLocalDemo = song !== null && song.assetName !== undefined;
+      setTimeout(() => {
+        this.loadLyrics();
+      }, 300);
     };
     this.playerService.addSongChangeListener(this.songListener);
   }
@@ -47,10 +46,10 @@ export struct LyricView {
   }
 
   loadLyrics() {
-    const allLyrics = this.playerService.getLyrics();
-    if (allLyrics && allLyrics.length > 0) {
-      this.lyrics = allLyrics;
-    }
+    const song: Song | null = this.playerService.getCurrentSong();
+    this.isLocalDemo = song !== null && song.assetName !== undefined;
+    const allLyrics: LyricLine[] = this.playerService.getLyrics();
+    this.lyrics = this.isLocalDemo ? [] : allLyrics;
     this.currentIndex = this.playerService.getCurrentLyricIndex();
   }
 
@@ -64,7 +63,6 @@ export struct LyricView {
     Column() {
       if (this.lyrics.length > 0) {
         List({ scroller: this.scroller }) {
-          // 顶部留白，让当前歌词居中
           ListItem() {
             Row().width('100%').height(120)
           }
@@ -73,8 +71,7 @@ export struct LyricView {
             ListItem() {
               Text(lyric.text)
                 .fontSize(index === this.currentIndex ? 18 : 15)
-                .fontColor(index === this.currentIndex ? this.accent :
-                  (this.isDark ? '#CCCCCC' : '#000000'))
+                .fontColor(index === this.currentIndex ? this.playerAccent : this.playerMuted)
                 .fontWeight(index === this.currentIndex ? FontWeight.Bold : FontWeight.Medium)
                 .textAlign(TextAlign.Center)
                 .width('100%')
@@ -83,7 +80,6 @@ export struct LyricView {
             }
           })
 
-          // 底部留白
           ListItem() {
             Row().width('100%').height(120)
           }
@@ -93,28 +89,21 @@ export struct LyricView {
         .divider({ strokeWidth: 0 })
         .scrollBar(BarState.Off)
       } else {
-        // 无歌词时的占位提示
         Column() {
-          // 微光唱片图标（简化矢量）
-          Shape() {
-            Path()
-              .commands('M 12 4 A 8 8 0 1 1 12 20 A 8 8 0 1 1 12 4 Z ' +
-                'M 12 7 A 5 5 0 1 1 12 17 A 5 5 0 1 1 12 7 Z')
-              .strokeWidth(1.5)
-              .stroke(this.isDark ? '#666666' : '#000000')
-              .fillOpacity(0)
-          }
-          .width(48)
-          .height(48)
+          Text('♪')
+            .fontSize(44)
+            .fontColor(this.playerMuted)
+            .opacity(0.7)
 
-          Text('暂无歌词')
+          Text(this.isLocalDemo ? '示例音频，无歌词' : '暂无歌词')
             .fontSize(15)
-            .fontColor(this.isDark ? '#666666' : '#000000')
+            .fontColor(this.playerMuted)
             .margin({ top: 16 })
 
-          Text('静静聆听音乐的美好')
+          Text(this.isLocalDemo ? '本地示例不包含歌词' : '静静聆听音乐的美好')
             .fontSize(13)
-            .fontColor(this.isDark ? '#444444' : '#BBBBBB')
+            .fontColor(this.playerMuted)
+            .opacity(0.65)
             .margin({ top: 6 })
         }
         .width('100%')

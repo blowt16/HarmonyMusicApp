@@ -9,6 +9,7 @@ export interface Song {
   coverUrl: string;
   lyric: string;
   availableQualities?: SongQualityInfo[];
+  assetName?: string;
 }
 
 export interface Playlist {

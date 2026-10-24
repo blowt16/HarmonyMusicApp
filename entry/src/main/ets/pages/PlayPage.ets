@@ -5,30 +5,17 @@ import { Song, PlayerState, AudioQuality, SongQualityInfo } from '../models/Musi
 import { PlayerControls } from '../components/PlayerControls';
 import { LyricView } from '../components/LyricView';
 import router from '@ohos.router';
-import {
-  HdsNavigation,
-  HdsNavigationTitleMode,
-  hdsMaterial,
-  HdsNavigationMenuContentOptions,
-  IconStyleMode,
-  ScrollEffectType,
-  BlurStrategy
-} from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
+import { promptAction } from '@kit.ArkUI';
+import { window } from '@kit.ArkUI';
 
 @Entry
 @Component
 struct PlayPage {
-  @StorageLink('bgPrimary') bgPrimary: string = '#FFFFFF';
-  @StorageLink('bgSecondary') bgSecondary: string = '#F5F5F5';
-  @StorageLink('textPrimary') textPrimary: string = '#000000';
-  @StorageLink('textSecondary') textSecondary: string = '#000000';
-  @StorageLink('textTertiary') textTertiary: string = '#000000';
-  @StorageLink('accent') accent: string = '#FF6B6B';
-  @StorageLink('accentLight') accentLight: string = '#FFF0F0';
-  @StorageLink('isDark') isDark: boolean = false;
-  @StorageLink('border') themeBorder: string = '#F5F5F5';
-  @StorageLink('overlay') themeOverlay: string = '#00000060';
+  @StorageLink('playerBg') playerBg: string = '#0B0C10';
+  @StorageLink('playerSurface') playerSurface: string = '#1A1A20';
+  @StorageLink('playerText') playerText: string = '#F5F5F7';
+  @StorageLink('playerMuted') playerMuted: string = '#C9C7D0';
+  @StorageLink('playerAccent') playerAccent: string = '#FF6B72';
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   @State currentSong: Song | null = null;
@@ -38,7 +25,6 @@ struct PlayPage {
   @State currentQuality: AudioQuality = AudioQuality.EXHIGH;
   @State showQualityDialog: boolean = false;
   @State showPlaylist: boolean = false;
-  @State customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
   @State swiperIndex: number = 0;
 
   private playerService: PlayerService = PlayerService.getInstance();
@@ -48,18 +34,17 @@ struct PlayPage {
 
   private songListener: ((song: Song | null) => void) | null = null;
   private stateListener: ((state: PlayerState) => void) | null = null;
+  private errorListener: ((message: string) => void) | null = null;
 
   async aboutToAppear() {
+    this.applyPlayerTokens();
+    this.setStatusBarLight(true);
+
     this.currentSong = this.playerService.getCurrentSong();
     this.playerState = this.playerService.getPlayerState();
     this.currentQuality = this.playerService.getQuality();
-
-    // 检测设备沉浸光感能力，选择最优档位
-    const materialTypes: Array<hdsMaterial.MaterialType> = hdsMaterial.getSystemMaterialTypes();
-    if (materialTypes.indexOf(hdsMaterial.MaterialType.IMMERSIVE) >= 0) {
-      this.customMaterialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
-    } else {
-      this.customMaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+    if (this.playerState === PlayerState.PLAYING) {
+      this.startRotation();
     }
 
     if (this.currentSong) {
@@ -87,27 +72,61 @@ struct PlayPage {
     };
     this.playerService.addStateChangeListener(this.stateListener);
 
-    const playlist = this.playerService.getPlaylist();
-    const currentIndex = this.playerService.getCurrentIndex();
-    if (playlist.length > 0 && currentIndex >= 0 && currentIndex < playlist.length) {
-      const currentSong: Song | null = this.playerService.getCurrentSong();
-      if (this.playerState === PlayerState.STOPPED && (!currentSong || !currentSong.url)) {
-        await this.playerService.playSong(playlist[currentIndex]);
-      }
-    }
+    this.errorListener = (message: string) => {
+      promptAction.showToast({ message, duration: 2000 });
+    };
+    this.playerService.addErrorListener(this.errorListener);
   }
 
   aboutToDisappear() {
     this.stopRotation();
+    this.setStatusBarLight(false);
+    this.restorePlayerTokens();
     if (this.songListener) {
       this.playerService.removeSongChangeListener(this.songListener);
     }
     if (this.stateListener) {
       this.playerService.removeStateChangeListener(this.stateListener);
     }
+    if (this.errorListener) {
+      this.playerService.removeErrorListener(this.errorListener);
+    }
+  }
+
+  applyPlayerTokens() {
+    AppStorage.setOrCreate<string>('playerBg', '#0B0C10');
+    AppStorage.setOrCreate<string>('playerSurface', '#1A1A20');
+    AppStorage.setOrCreate<string>('playerText', '#F5F5F7');
+    AppStorage.setOrCreate<string>('playerMuted', '#C9C7D0');
+    AppStorage.setOrCreate<string>('playerAccent', '#FF6B72');
+  }
+
+  restorePlayerTokens() {
+    AppStorage.setOrCreate<string>('playerBg', '#F7F6F2');
+    AppStorage.setOrCreate<string>('playerSurface', '#FFFFFF');
+    AppStorage.setOrCreate<string>('playerText', '#17181A');
+    AppStorage.setOrCreate<string>('playerMuted', '#6B6F76');
+    AppStorage.setOrCreate<string>('playerAccent', '#C8424C');
+  }
+
+  async setStatusBarLight(darkPage: boolean) {
+    try {
+      const mainWindow = await window.getLastWindow(getContext(this));
+      mainWindow.setWindowSystemBarProperties({
+        statusBarColor: '#00000000',
+        navigationBarColor: darkPage ? '#0B0C10' : '#F7F6F2',
+        statusBarContentColor: darkPage ? '#FFFFFF' : '#000000',
+        navigationBarContentColor: darkPage ? '#FFFFFF' : '#000000'
+      });
+    } catch (e) {
+      // 系统栏设置失败时保持当前值
+    }
   }
 
   startRotation() {
+    if (this.timer) {
+      return;
+    }
     this.timer = setInterval(() => {
       this.coverRotation = (this.coverRotation + 1) % 360;
     }, 50);
@@ -121,153 +140,188 @@ struct PlayPage {
   }
 
   async toggleFavorite() {
-    if (!this.currentSong) return;
+    if (!this.currentSong) {
+      return;
+    }
     this.isFavorite = await this.storageService.toggleFavorite(this.currentSong);
+  }
+
+  @Builder
+  Header() {
+    Row() {
+      Button() {
+        Text('‹')
+          .fontSize(30)
+          .fontColor(this.playerText)
+          .height(30)
+      }
+      .width(48)
+      .height(48)
+      .borderRadius(24)
+      .backgroundColor('#26FFFFFF')
+      .onClick(() => {
+        router.back();
+      })
+
+      Text(this.swiperIndex === 0 ? '正在播放' : '歌词')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.playerText)
+        .margin({ left: 14 })
+      Blank()
+
+      Text(this.getQualityLabel(this.currentQuality))
+        .fontSize(12)
+        .fontColor(this.playerMuted)
+        .height(34)
+        .padding({ left: 14, right: 14 })
+        .backgroundColor('#1AFFFFFF')
+        .borderRadius(17)
+        .textAlign(TextAlign.Center)
+        .onClick(() => {
+          this.showQualityDialog = true;
+        })
+
+      Button() {
+        SymbolGlyph(this.isFavorite ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+          .fontSize(20)
+          .fontColor([this.isFavorite ? this.playerAccent : this.playerText])
+      }
+      .width(48)
+      .height(48)
+      .borderRadius(24)
+      .backgroundColor('#26FFFFFF')
+      .margin({ left: 10 })
+      .onClick(() => {
+        this.toggleFavorite();
+      })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20 })
+    .margin({ top: this.statusBarHeight + 12 })
+    .alignItems(VerticalAlign.Center)
   }
 
   build() {
     Stack() {
-      // === 背景层：当前歌曲封面取色模糊 ===
+      // 深色背景：封面放大模糊 + 深色遮罩
       if (this.currentSong?.coverUrl) {
         Image(thumbnail(this.currentSong.coverUrl, 500, 500))
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
           .blur(50)
-          .scale({ x: 1.2, y: 1.2 }) // 放大避免边缘透出底色
-
-        // 半透明遮罩，保证前景文字可读
+          .scale({ x: 1.25, y: 1.25 })
         Row()
           .width('100%')
           .height('100%')
-          .backgroundColor(this.isDark ? '#000000' : '#FFFFFF')
-          .opacity(this.isDark ? 0.5 : 0.3)
+          .backgroundColor(this.playerBg)
+          .opacity(0.74)
+      } else {
+        Column()
+          .width('100%')
+          .height('100%')
+          .linearGradient({
+            angle: 180,
+            colors: [['#1E1E26', 0.0], ['#0B0C10', 1.0]]
+          })
       }
 
-      // === 主内容 ===
-      HdsNavigation() {
-        Column() {
-          // Swiper：封面页 ↔ 歌词页（右滑）
-          Swiper(this.swiperController) {
-            // ---- 页面 0：封面 + 歌曲信息 ----
-            Column() {
-              // 封面（旋转 CD）
-              Image(thumbnail(this.currentSong?.coverUrl || '', 300, 300))
+      Column() {
+        this.Header()
+
+        Swiper(this.swiperController) {
+          // 封面页
+          Column() {
+            if (this.currentSong?.coverUrl) {
+              Image(thumbnail(this.currentSong.coverUrl, 300, 300))
                 .width(250)
                 .height(250)
                 .borderRadius(125)
-                .border({ width: 6, color: this.isDark ? '#FFFFFF20' : '#FFFFFF' })
+                .border({ width: 6, color: '#33FFFFFF' })
                 .rotate({ angle: this.coverRotation })
                 .objectFit(ImageFit.Cover)
-                .shadow({ radius: 20, color: '#00000030' })
-
-              // 歌曲信息
-              Column() {
-                Text(this.currentSong?.name || '未知歌曲')
-                  .fontSize(22)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor(this.textPrimary)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .margin({ top: 24 })
-
-                Text(this.currentSong?.artist || '未知歌手')
-                  .fontSize(16)
-                  .fontColor(this.textSecondary)
-                  .margin({ top: 8 })
-
-                Text(this.currentSong?.album || '未知专辑')
-                  .fontSize(14)
-                  .fontColor(this.textTertiary)
-                  .margin({ top: 4 })
+                .backgroundColor(this.playerSurface)
+                .shadow({ radius: 24, color: '#99000000' })
+            } else {
+              Stack() {
+                Circle()
+                  .width(250)
+                  .height(250)
+                  .fill('#26FF6B72')
+                Text('♪')
+                  .fontSize(76)
+                  .fontColor(this.playerAccent)
               }
-              .width('100%')
-              .alignItems(HorizontalAlign.Center)
+              .width(250)
+              .height(250)
+              .borderRadius(125)
+              .border({ width: 6, color: '#33FFFFFF' })
+              .shadow({ radius: 24, color: '#99000000' })
+            }
+
+            Column() {
+              Text(this.currentSong?.name || '未知歌曲')
+                .fontSize(22)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(this.playerText)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .margin({ top: 26 })
+
+              Text(this.currentSong?.artist || '未知歌手')
+                .fontSize(15)
+                .fontColor(this.playerMuted)
+                .margin({ top: 8 })
+
+              Text(this.currentSong?.album || '未知专辑')
+                .fontSize(13)
+                .fontColor(this.playerMuted)
+                .opacity(0.75)
+                .margin({ top: 5 })
+
+              if (this.currentSong?.assetName) {
+                Text('本地示例')
+                  .fontSize(11)
+                  .fontColor(this.playerAccent)
+                  .backgroundColor('#33FF6B72')
+                  .borderRadius(10)
+                  .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+                  .margin({ top: 12 })
+              }
             }
             .width('100%')
-            .height('100%')
-            .padding({ top: 20 })
-            .margin({ top: this.statusBarHeight + 48 })
-            .justifyContent(FlexAlign.Start)
             .alignItems(HorizontalAlign.Center)
-
-            // ---- 页面 1：全屏歌词（右滑显示） ----
-            LyricView()
-              .width('100%')
-              .height('100%')
-              .margin({ top: this.statusBarHeight + 48 + 20 })
           }
           .width('100%')
-          .layoutWeight(1)    // 填满剩余空间，不挤压 PlayerControls
-          .loop(false)
-          .indicator(false)
-          .index(this.swiperIndex)
-          .onChange((index: number) => {
-            this.swiperIndex = index;
-          })
+          .height('100%')
+          .padding({ top: 10 })
+          .justifyContent(FlexAlign.Start)
+          .alignItems(HorizontalAlign.Center)
 
-          // 播放控件（始终在底部）
-          PlayerControls({
-            playlistAction: (): void => {
-              this.showPlaylist = true;
-            }
-          })
-            .margin({ bottom: 48 })
+          // 歌词页
+          LyricView()
+            .width('100%')
+            .height('100%')
         }
         .width('100%')
-        .height('100%')
-        .backgroundColor('#00000000') // 透明让背景层透出
+        .layoutWeight(1)
+        .loop(false)
+        .indicator(false)
+        .index(this.swiperIndex)
+        .onChange((index: number) => {
+          this.swiperIndex = index;
+        })
+
+        PlayerControls({
+          playlistAction: (): void => {
+            this.showPlaylist = true;
+          }
+        })
+          .margin({ bottom: 24 })
       }
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        content: {
-          title: {
-            mainTitle: this.swiperIndex === 0 ? '正在播放' : '歌词'
-          },
-          menu: {
-            value: [
-              {
-                content: {
-                  label: this.getQualityLabel(this.currentQuality),
-                  icon: $r('sys.symbol.speaker_wave_2'),
-                  type: IconStyleMode.NORMAL,
-                  action: (): void => {
-                    this.showQualityDialog = true;
-                  }
-                }
-              },
-              {
-                content: {
-                  label: this.isFavorite ? '已收藏' : '收藏',
-                  icon: this.isFavorite ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
-                  type: IconStyleMode.NORMAL,
-                  action: (): void => {
-                    this.toggleFavorite();
-                  }
-                }
-              }
-            ]
-          }
-        },
-        style: {
-          scrollEffectOpts: {
-            enableScrollEffect: true,
-            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-            blurEffectiveStartOffset: LengthMetrics.vp(0),
-            blurEffectiveEndOffset: LengthMetrics.vp(40)
-          },
-          blurStrategy: BlurStrategy.ADAPTIVE,
-          originalStyle: { backgroundStyle: { backgroundColor: '#00FFFFFF' } },
-          scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00FFFFFF' } },
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: this.customMaterialLevel
-          }
-        }
-      })
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .hideBackButton(false)
-      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+      .width('100%')
+      .height('100%')
 
       if (this.showQualityDialog) {
         this.QualityDialog()
@@ -279,14 +333,16 @@ struct PlayPage {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(this.playerBg)
   }
 
-  @Builder QualityDialog() {
+  @Builder
+  QualityDialog() {
     Stack({ alignContent: Alignment.Bottom }) {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor(this.themeOverlay)
+        .backgroundColor('#B3000000')
         .onClick(() => {
           this.showQualityDialog = false;
         })
@@ -295,20 +351,20 @@ struct PlayPage {
         Text('选择音质')
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.textPrimary)
-          .margin({ top: 20, bottom: 16 })
+          .fontColor(this.playerText)
+          .margin({ top: 20, bottom: 12 })
 
         ForEach(this.getQualityOptions(), (item: QualityOption) => {
           Row() {
             Column() {
               Text(item.label)
                 .fontSize(16)
-                .fontColor(this.currentQuality === item.quality ? this.accent : this.textPrimary)
+                .fontColor(this.currentQuality === item.quality ? this.playerAccent : this.playerText)
                 .fontWeight(this.currentQuality === item.quality ? FontWeight.Bold : FontWeight.Medium)
 
               Text(item.desc)
                 .fontSize(12)
-                .fontColor(this.textTertiary)
+                .fontColor(this.playerMuted)
                 .margin({ top: 2 })
             }
             .alignItems(HorizontalAlign.Start)
@@ -318,12 +374,12 @@ struct PlayPage {
             if (this.currentQuality === item.quality) {
               Text('✓')
                 .fontSize(18)
-                .fontColor(this.accent)
+                .fontColor(this.playerAccent)
                 .fontWeight(FontWeight.Bold)
             }
           }
           .width('100%')
-          .height(56)
+          .height(58)
           .padding({ left: 20, right: 20 })
           .onClick(() => {
             this.changeQuality(item.quality);
@@ -332,45 +388,41 @@ struct PlayPage {
 
         Row()
           .width('100%')
-          .height(20)
+          .height(28)
       }
       .width('100%')
-      .backgroundColor(this.bgPrimary)
-      .borderRadius({ topLeft: 16, topRight: 16 })
+      .backgroundColor(this.playerSurface)
+      .borderRadius({ topLeft: 20, topRight: 20 })
     }
     .width('100%')
     .height('100%')
   }
 
-  @Builder PlaylistDialog() {
+  @Builder
+  PlaylistDialog() {
     Stack({ alignContent: Alignment.Bottom }) {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor(this.themeOverlay)
+        .backgroundColor('#B3000000')
         .onClick(() => {
           this.showPlaylist = false;
         })
 
       Column() {
-        // 标题栏（沉浸模糊）
         Row() {
           Text('播放列表')
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.textPrimary)
+            .fontColor(this.playerText)
           Blank()
           Text(`${this.playerService.getPlaylist().length} 首`)
-            .fontSize(14)
-            .fontColor(this.textTertiary)
+            .fontSize(13)
+            .fontColor(this.playerMuted)
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 20, bottom: 12 })
-        .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK, {
-          scale: 0.6
-        })
 
-        // 歌曲列表
         List({ space: 0 }) {
           ForEach(this.playerService.getPlaylist(), (item: Song, index: number) => {
             ListItem() {
@@ -378,12 +430,12 @@ struct PlayPage {
                 Column() {
                   Text(item.name)
                     .fontSize(15)
-                    .fontColor(item.id === this.currentSong?.id ? this.accent : this.textPrimary)
+                    .fontColor(item.id === this.currentSong?.id ? this.playerAccent : this.playerText)
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                   Text(item.artist || '未知')
                     .fontSize(12)
-                    .fontColor(this.textTertiary)
+                    .fontColor(this.playerMuted)
                     .margin({ top: 2 })
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -392,15 +444,10 @@ struct PlayPage {
                 .layoutWeight(1)
 
                 if (item.id === this.currentSong?.id) {
-                  // 正在播放指示器
-                  Shape() {
-                    Path()
-                      .commands('M 12 4 A 8 8 0 1 1 12 20 A 8 8 0 1 1 12 4 Z')
-                      .fill(this.accent)
-                  }
-                  .width(16)
-                  .height(16)
-                  .margin({ left: 8 })
+                  Text('♪')
+                    .fontSize(16)
+                    .fontColor(this.playerAccent)
+                    .margin({ left: 8 })
                 }
               }
               .width('100%')
@@ -413,20 +460,17 @@ struct PlayPage {
           })
         }
         .width('100%')
-        .height('50%')
-        .backgroundColor(this.bgSecondary)
+        .height('52%')
+        .backgroundColor('#141419')
         .borderRadius({ topLeft: 12, topRight: 12 })
 
         Row()
           .width('100%')
-          .height(20)
+          .height(28)
       }
       .width('100%')
-      .borderRadius({ topLeft: 16, topRight: 16 })
-      .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK, {
-        scale: 0.6
-      })
-      .backgroundColor(this.isDark ? '#1A1A1AE0' : '#FFFFFFE0')
+      .borderRadius({ topLeft: 20, topRight: 20 })
+      .backgroundColor(this.playerSurface)
     }
     .width('100%')
     .height('100%')
@@ -484,7 +528,9 @@ struct PlayPage {
   }
 
   formatSize(bytes: number): string {
-    if (bytes <= 0) return '';
+    if (bytes <= 0) {
+      return '';
+    }
     const mb: number = bytes / 1024 / 1024;
     return mb.toFixed(1) + 'MB';
   }

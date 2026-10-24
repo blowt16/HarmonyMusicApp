@@ -3,6 +3,8 @@ import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
 import { AuthService } from '../services/AuthService';
 import { AudioSessionService } from '../services/AudioSessionService';
+import { WidgetService } from '../services/WidgetService';
+import { LOCAL_DEMO_SONG, LOCAL_FALLBACK_SONGS } from '../services/MockData';
 import { thumbnail } from '../utils/ImageUtils';
 import { Song, AudioQuality, PlaylistInfo, EffectLevel, PlayerState } from '../models/MusicModel';
 import { FavoritesView } from './views/FavoritesView';
@@ -165,6 +167,7 @@ struct Index {
 
   onPageShow() {
     this.refreshLibrary();
+    WidgetService.refreshAll();
   }
 
   async refreshLibrary() {
@@ -255,6 +258,7 @@ struct Index {
   async clearHistory() {
     await this.storageService.clearPlayHistory();
     await this.refreshLibrary();
+    WidgetService.refreshAll();
     promptAction.showToast({ message: '已清空最近播放', duration: 1500 });
   }
 
@@ -614,12 +618,24 @@ struct Index {
   @Builder
   SongCard(song: Song, songs: Song[], index: number) {
     Column() {
-      Image(thumbnail(song.coverUrl, 300, 300))
+      if (song.coverUrl) {
+        Image(thumbnail(song.coverUrl, 300, 300))
+          .width(140)
+          .height(140)
+          .borderRadius(14)
+          .objectFit(ImageFit.Cover)
+          .backgroundColor(this.accentLight)
+      } else {
+        Stack() {
+          Text('♪')
+            .fontSize(46)
+            .fontColor(this.accent)
+        }
         .width(140)
         .height(140)
         .borderRadius(14)
-        .objectFit(ImageFit.Cover)
         .backgroundColor(this.accentLight)
+      }
 
       Text(song.name)
         .fontSize(14)
@@ -671,7 +687,7 @@ struct Index {
         .fontSize(15)
         .fontWeight(FontWeight.Medium)
         .fontColor(this.textPrimary)
-      Text('检查网络后重试，已加载的内容会保留')
+      Text('当前展示本地精选，检查网络后可重新加载在线推荐')
         .fontSize(12)
         .fontColor(this.textTertiary)
         .margin({ top: 6 })
@@ -727,6 +743,20 @@ struct Index {
             }
           }
           .margin({ top: 18 })
+
+          this.SectionTitle('本地精选')
+          List() {
+            ForEach(LOCAL_FALLBACK_SONGS, (song: Song, index: number) => {
+              ListItem() {
+                this.SongCard(song, LOCAL_FALLBACK_SONGS, index)
+              }
+            })
+          }
+          .listDirection(Axis.Horizontal)
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+          .width('100%')
+          .height(200)
 
           if (this.history.length > 0) {
             this.SectionTitle('最近播放')
@@ -920,6 +950,17 @@ struct Index {
               .margin({ top: 14 })
               .onClick(() => {
                 this.runSearch();
+              })
+
+            Button('播放本地示例')
+              .height(38)
+              .fontSize(14)
+              .fontColor(this.accent)
+              .backgroundColor(this.accentLight)
+              .borderRadius(19)
+              .margin({ top: 10 })
+              .onClick(() => {
+                this.playSongsAt(LOCAL_FALLBACK_SONGS, 0);
               })
           }
           .width('100%')

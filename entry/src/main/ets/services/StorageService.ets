@@ -9,6 +9,7 @@ const THEME_DARK_KEY = 'theme_dark';
 const EFFECT_LEVEL_KEY = 'effect_level';
 const BACKGROUND_IMAGE_KEY = 'bg_image';
 const BACKGROUND_OPACITY_KEY = 'bg_opacity';
+const FORM_IDS_KEY = 'widget_form_ids';
 const MAX_HISTORY_SIZE = 50;
 const MAX_FAVORITES_SIZE = 200;
 
@@ -312,6 +313,43 @@ export class StorageService {
       await prefs.flush();
     } catch (e) {
       console.error('Set background opacity error:', e);
+    }
+  }
+
+  // 服务卡片 formId 列表（用于 App 内主动刷新卡片）
+  async getFormIds(): Promise<string[]> {
+    try {
+      const prefs = await this.getPreferences();
+      const raw = await prefs.get(FORM_IDS_KEY, '[]') as string;
+      return JSON.parse(raw) as string[];
+    } catch (e) {
+      console.error('Get form ids error:', e);
+      return [];
+    }
+  }
+
+  async addFormId(formId: string): Promise<void> {
+    try {
+      const prefs = await this.getPreferences();
+      let ids: string[] = await this.getFormIds();
+      if (ids.indexOf(formId) < 0) {
+        ids.push(formId);
+        await prefs.put(FORM_IDS_KEY, JSON.stringify(ids));
+        await prefs.flush();
+      }
+    } catch (e) {
+      console.error('Add form id error:', e);
+    }
+  }
+
+  async removeFormId(formId: string): Promise<void> {
+    try {
+      const prefs = await this.getPreferences();
+      const ids: string[] = (await this.getFormIds()).filter((item: string) => item !== formId);
+      await prefs.put(FORM_IDS_KEY, JSON.stringify(ids));
+      await prefs.flush();
+    } catch (e) {
+      console.error('Remove form id error:', e);
     }
   }
 }

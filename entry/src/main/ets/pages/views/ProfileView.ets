@@ -22,13 +22,31 @@ export struct ProfileView {
   onOpenFavorites: () => void = () => {};
 
   @Builder
-  StatBlock(value: number, label: string) {
+  FavoriteStat() {
     Column() {
-      Text(`${value}`)
+      Text(`${this.favoriteCount}`)
         .fontSize(22)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.textPrimary)
-      Text(label)
+      Text('收藏')
+        .fontSize(12)
+        .fontColor(this.textTertiary)
+        .margin({ top: 4 })
+    }
+    .layoutWeight(1)
+    .onClick(() => {
+      this.onOpenFavorites();
+    })
+  }
+
+  @Builder
+  HistoryStat() {
+    Column() {
+      Text(`${this.historyCount}`)
+        .fontSize(22)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.textPrimary)
+      Text('最近播放')
         .fontSize(12)
         .fontColor(this.textTertiary)
         .margin({ top: 4 })
@@ -85,13 +103,13 @@ export struct ProfileView {
               .margin({ top: 18, bottom: 14 })
 
             Row() {
-              this.StatBlock(this.favoriteCount, '收藏')
+              this.FavoriteStat()
               Divider()
                 .vertical(true)
                 .height(28)
                 .strokeWidth(0.5)
                 .color(this.themeBorder)
-              this.StatBlock(this.historyCount, '最近播放')
+              this.HistoryStat()
             }
             .width('100%')
           }

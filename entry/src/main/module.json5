@@ -49,6 +49,19 @@
     ],
     "extensionAbilities": [
       {
+        "name": "MusicFormAbility",
+        "srcEntry": "./ets/formability/MusicFormAbility.ets",
+        "description": "$string:MusicFormAbility_desc",
+        "label": "$string:MusicFormAbility_label",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      },
+      {
         "name": "EntryBackupAbility",
         "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
         "type": "backup",

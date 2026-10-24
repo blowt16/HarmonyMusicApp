@@ -2,8 +2,9 @@ import { Song, SearchResult, LyricLine, AudioQuality, SongQualityInfo, PlaylistI
 import http from '@ohos.net.http';
 import { CacheService } from './CacheService';
 
-const BASE_URL: string = 'https://music.163.com/api/cloudsearch/pc';
-const LYRIC_BASE: string = 'https://music.163.com/api/song/lyric';
+const API_ORIGIN: string = 'https://music.163.com';
+const BASE_URL: string = `${API_ORIGIN}/api/cloudsearch/pc`;
+const LYRIC_BASE: string = `${API_ORIGIN}/api/song/lyric`;
 
 interface ArtistItem {
   id: number;
@@ -333,7 +334,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `https://music.163.com/api/song/enhance/player/url?id=${songId}&ids=[${songId}]&br=${quality}`;
+      const url: string = `${API_ORIGIN}/api/song/enhance/player/url?id=${songId}&ids=[${songId}]&br=${quality}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         header: this.buildCommonHeaders()
@@ -425,7 +426,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `https://music.163.com/api/song/detail?id=${songId}&ids=[${songId}]`;
+      const url: string = `${API_ORIGIN}/api/song/detail?id=${songId}&ids=[${songId}]`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         header: this.buildCommonHeaders()
@@ -524,7 +525,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `https://music.163.com/api/v3/playlist/detail`;
+      const url: string = `${API_ORIGIN}/api/v3/playlist/detail`;
       const body: string = `id=${playlistId}&n=1000&s=0`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.POST,
@@ -616,7 +617,7 @@ export class ApiService {
   private async batchGetSongDetails(ids: number[]): Promise<Song[]> {
     try {
       const idsStr: string = JSON.stringify(ids);
-      const url: string = `https://music.163.com/api/song/detail`;
+      const url: string = `${API_ORIGIN}/api/song/detail`;
       const body: string = `ids=${encodeURIComponent(idsStr)}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.POST,
@@ -670,7 +671,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `https://music.163.com/api/personalized?limit=${limit}`;
+      const url: string = `${API_ORIGIN}/api/personalized?limit=${limit}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         connectTimeout: ApiService.CONNECT_TIMEOUT,
@@ -713,7 +714,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `https://music.163.com/api/top/playlist?cat=${encodeURIComponent(category)}&limit=${limit}&order=hot`;
+      const url: string = `${API_ORIGIN}/api/top/playlist?cat=${encodeURIComponent(category)}&limit=${limit}&order=hot`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         connectTimeout: ApiService.CONNECT_TIMEOUT,
@@ -800,7 +801,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `https://music.163.com/api/personalized/newalbum?limit=${limit}`;
+      const url: string = `${API_ORIGIN}/api/personalized/newalbum?limit=${limit}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         connectTimeout: ApiService.CONNECT_TIMEOUT,

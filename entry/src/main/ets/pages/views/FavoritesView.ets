@@ -31,30 +31,58 @@ export struct FavoritesView {
   }
 
   @Builder
-  SegmentChip(label: string, index: number, count: number) {
-    Text(`${label} ${count}`)
+  FavoriteChip() {
+    Text(`收藏 ${this.favorites.length}`)
       .fontSize(14)
-      .fontWeight(this.segmentIndex === index ? FontWeight.Bold : FontWeight.Medium)
-      .fontColor(this.segmentIndex === index ? '#FFFFFF' : this.textSecondary)
-      .backgroundColor(this.segmentIndex === index ? this.accent : this.bgSecondary)
+      .fontWeight(this.segmentIndex === 0 ? FontWeight.Bold : FontWeight.Medium)
+      .fontColor(this.segmentIndex === 0 ? '#FFFFFF' : this.textSecondary)
+      .backgroundColor(this.segmentIndex === 0 ? this.accent : this.bgSecondary)
       .borderRadius(18)
       .height(36)
       .padding({ left: 16, right: 16 })
       .textAlign(TextAlign.Center)
       .onClick(() => {
-        this.segmentIndex = index;
+        this.segmentIndex = 0;
+      })
+  }
+
+  @Builder
+  HistoryChip() {
+    Text(`最近播放 ${this.history.length}`)
+      .fontSize(14)
+      .fontWeight(this.segmentIndex === 1 ? FontWeight.Bold : FontWeight.Medium)
+      .fontColor(this.segmentIndex === 1 ? '#FFFFFF' : this.textSecondary)
+      .backgroundColor(this.segmentIndex === 1 ? this.accent : this.bgSecondary)
+      .borderRadius(18)
+      .height(36)
+      .padding({ left: 16, right: 16 })
+      .textAlign(TextAlign.Center)
+      .onClick(() => {
+        this.segmentIndex = 1;
       })
   }
 
   @Builder
   SongRow(song: Song, songs: Song[], index: number) {
     Row() {
-      Image(thumbnail(song.coverUrl, 100, 100))
+      if (song.coverUrl) {
+        Image(thumbnail(song.coverUrl, 100, 100))
+          .width(40)
+          .height(40)
+          .borderRadius(6)
+          .objectFit(ImageFit.Cover)
+          .backgroundColor(this.accentLight)
+      } else {
+        Stack() {
+          Text('♪')
+            .fontSize(16)
+            .fontColor(this.accent)
+        }
         .width(40)
         .height(40)
         .borderRadius(6)
-        .objectFit(ImageFit.Cover)
         .backgroundColor(this.accentLight)
+      }
 
       Column() {
         Text(song.name)
@@ -134,8 +162,8 @@ export struct FavoritesView {
 
       Column() {
         Row({ space: 10 }) {
-          this.SegmentChip('收藏', 0, this.favorites.length)
-          this.SegmentChip('最近播放', 1, this.history.length)
+          this.FavoriteChip()
+          this.HistoryChip()
           Blank()
           if (this.segmentIndex === 0) {
             Text('我的收藏')
