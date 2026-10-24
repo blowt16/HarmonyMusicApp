@@ -337,6 +337,8 @@ export class ApiService {
       const url: string = `${API_ORIGIN}/api/song/enhance/player/url?id=${songId}&ids=[${songId}]&br=${quality}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: this.buildCommonHeaders()
       });
 
@@ -379,6 +381,8 @@ export class ApiService {
       const url: string = `${LYRIC_BASE}?id=${songId}&lv=1&kv=1&tv=-1`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: this.buildCommonHeaders()
       });
 
@@ -429,6 +433,8 @@ export class ApiService {
       const url: string = `${API_ORIGIN}/api/song/detail?id=${songId}&ids=[${songId}]`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
         header: this.buildCommonHeaders()
       });
 

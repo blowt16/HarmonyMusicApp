@@ -16,6 +16,12 @@ struct WelcomePage {
 
   aboutToAppear() {
     this.authService.setContext(getContext(this));
+    const skipDelay: boolean = AppStorage.get<boolean>('skipWelcomeDelay') === true;
+    if (skipDelay) {
+      AppStorage.setOrCreate<boolean>('skipWelcomeDelay', false);
+      this.enterApp();
+      return;
+    }
     this.timer = setTimeout(() => {
       this.enterApp();
     }, 1500);

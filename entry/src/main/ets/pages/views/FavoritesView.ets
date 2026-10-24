@@ -23,6 +23,7 @@ export struct FavoritesView {
   onPlaySong: (song: Song, songs: Song[], index: number) => void = () => {};
   onClearHistory: () => void = () => {};
   onGoSearch: () => void = () => {};
+  onGoHome: () => void = () => {};
 
   @State segmentIndex: number = 0;
 
@@ -145,7 +146,11 @@ export struct FavoritesView {
         .borderRadius(20)
         .margin({ top: 18 })
         .onClick(() => {
-          this.onGoSearch();
+          if (this.segmentIndex === 1) {
+            this.onGoHome();
+          } else {
+            this.onGoSearch();
+          }
         })
     }
     .width('100%')

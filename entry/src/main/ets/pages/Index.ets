@@ -116,6 +116,8 @@ struct Index {
 
   private songListener: ((song: Song | null) => void) | null = null;
   private miniStateListener: ((state: PlayerState) => void) | null = null;
+  private errorListener: ((message: string) => void) | null = null;
+  private isLoggingOut: boolean = false;
 
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
@@ -151,6 +153,12 @@ struct Index {
     };
     this.playerService.addStateChangeListener(this.miniStateListener);
 
+    // 列表页发起播放时 PlayPage 可能尚未挂载，错误提示统一由常驻的 Index 监听
+    this.errorListener = (message: string) => {
+      promptAction.showToast({ message, duration: 2000 });
+    };
+    this.playerService.addErrorListener(this.errorListener);
+
     await this.refreshLibrary();
     await this.loadSearchHistory();
     await this.loadHome();
@@ -162,6 +170,9 @@ struct Index {
     }
     if (this.miniStateListener) {
       this.playerService.removeStateChangeListener(this.miniStateListener);
+    }
+    if (this.errorListener) {
+      this.playerService.removeErrorListener(this.errorListener);
     }
   }
 
@@ -357,10 +368,15 @@ struct Index {
   }
 
   async handleLogout() {
+    if (this.isLoggingOut) {
+      return;
+    }
+    this.isLoggingOut = true;
     const context = getContext(this) as common.UIAbilityContext;
     try {
       this.playerService.stop();
       await this.playerService.release();
+      this.playerService.reset();
       await this.audioSessionService.destroy();
       await this.authService.logout();
 
@@ -370,9 +386,12 @@ struct Index {
         parameters: { showLogin: true }
       };
       await context.startAbility(want);
-      await context.terminateSelf();
+      setTimeout(() => {
+        context.terminateSelf();
+      }, 800);
     } catch (e) {
       console.error('Logout error:', e);
+      this.isLoggingOut = false;
       promptAction.showToast({ message: '退出登录失败，请重试', duration: 1500 });
     }
   }
@@ -1156,6 +1175,9 @@ struct Index {
               },
               onGoSearch: (): void => {
                 this.tabsController.changeIndex(1);
+              },
+              onGoHome: (): void => {
+                this.tabsController.changeIndex(0);
               }
             })
           }

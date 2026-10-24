@@ -27,6 +27,10 @@ export class PlayerService {
   private currentLyricIndex: number = -1;
   private currentQuality: AudioQuality = AudioQuality.EXHIGH;
 
+  // 播放请求串行化与取消标记，避免快速切歌时两个 playSong 交叉写状态
+  private playQueue: Promise<void> = Promise.resolve();
+  private playbackEpoch: number = 0;
+
   // 使用数组支持多个监听器
   private stateChangeListeners: ((state: PlayerState) => void)[] = [];
   private songChangeListeners: ((song: Song | null) => void)[] = [];
@@ -187,19 +191,25 @@ export class PlayerService {
     this.lyricChangeListeners = [callback];
   }
 
-  private async initPlayer() {
+  private async initPlayer(): Promise<media.AVPlayer> {
     console.info('initPlayer() called');
     if (this.avPlayer) {
       console.info('Releasing existing player');
-      await this.avPlayer.release();
+      const oldPlayer: media.AVPlayer = this.avPlayer;
+      this.avPlayer = null;
+      await oldPlayer.release();
     }
     await this.closeRawFd();
 
     console.info('Creating new AVPlayer');
-    this.avPlayer = await media.createAVPlayer();
-    console.info('AVPlayer created:', this.avPlayer !== null);
+    const player: media.AVPlayer = await media.createAVPlayer();
+    this.avPlayer = player;
+    console.info('AVPlayer created:', player !== null);
 
-    this.avPlayer.on('stateChange', (state: string) => {
+    player.on('stateChange', (state: string) => {
+      if (this.avPlayer !== player) {
+        return;
+      }
       console.info('Player state changed:', state);
       switch (state) {
         case 'initialized':
@@ -243,7 +253,10 @@ export class PlayerService {
       }
     });
 
-    this.avPlayer.on('timeUpdate', (timeMs: number) => {
+    player.on('timeUpdate', (timeMs: number) => {
+      if (this.avPlayer !== player) {
+        return;
+      }
       this.currentPosition = timeMs / 1000;
       this.notifyProgressChange(this.currentPosition, this.duration);
       this.audioSessionService.updateProgress(this.currentPosition, this.duration);
@@ -251,6 +264,7 @@ export class PlayerService {
     });
 
     console.info('initPlayer() completed');
+    return player;
   }
 
   // 播放历史统一在这里记录，覆盖首页、歌单、搜索、播放页与上一首/下一首
@@ -281,11 +295,32 @@ export class PlayerService {
     }
   }
 
-  async playSong(song: Song): Promise<void> {
+  playSong(song: Song): Promise<void> {
+    const epoch: number = this.playbackEpoch;
+    const run: Promise<void> = this.playQueue.then(async () => {
+      if (epoch !== this.playbackEpoch) {
+        return;
+      }
+      await this.doPlaySong(song, epoch);
+    });
+    this.playQueue = run.catch((error: Error) => {
+      console.error('Play queue error:', error);
+    });
+    return run;
+  }
+
+  private async doPlaySong(song: Song, epoch: number): Promise<void> {
     console.info('playSong() called for:', song.name, 'id:', song.id);
     try {
       console.info('Initializing player...');
-      await this.initPlayer();
+      const player: media.AVPlayer = await this.initPlayer();
+      if (epoch !== this.playbackEpoch) {
+        if (this.avPlayer === player) {
+          this.avPlayer = null;
+        }
+        await player.release();
+        return;
+      }
 
       this.currentSong = song;
       this.historyRecorded = false;
@@ -308,8 +343,11 @@ export class PlayerService {
         }
         try {
           const rawFd: resourceManager.RawFileDescriptor = await this.resManager.getRawFd(song.assetName);
+          if (epoch !== this.playbackEpoch || this.avPlayer !== player) {
+            return;
+          }
           this.rawFdPath = song.assetName;
-          this.avPlayer.fdSrc = {
+          player.fdSrc = {
             fd: rawFd.fd,
             offset: rawFd.offset,
             length: rawFd.length
@@ -330,16 +368,19 @@ export class PlayerService {
       // 获取播放链接
       console.info('Getting song URL for id:', song.id, 'quality:', this.currentQuality);
       const url: string = await this.apiService.getSongUrl(song.id, this.currentQuality);
+      if (epoch !== this.playbackEpoch || this.avPlayer !== player) {
+        return;
+      }
       console.info('Song URL result:', url);
 
-      if (url && this.avPlayer) {
+      if (url) {
         this.currentSong.url = url;
         console.info('Setting avPlayer.url:', url);
-        this.avPlayer.url = url;
+        player.url = url;
         this.duration = song.duration / 1000;
         console.info('Duration set to:', this.duration);
       } else {
-        console.error('No URL or player not initialized, url:', url, 'avPlayer:', this.avPlayer !== null);
+        console.error('No URL, url:', url);
         this.playerState = PlayerState.STOPPED;
         this.currentPosition = 0;
         this.duration = 0;
@@ -351,13 +392,20 @@ export class PlayerService {
 
       // 获取歌词
       console.info('Getting lyrics...');
-      this.lyrics = await this.apiService.getLyric(song.id);
+      const lyrics: LyricLine[] = await this.apiService.getLyric(song.id);
+      if (epoch !== this.playbackEpoch || this.currentSong?.id !== song.id) {
+        return;
+      }
+      this.lyrics = lyrics;
       this.currentLyricIndex = -1;
       console.info('playSong() completed');
     } catch (error) {
       console.error('Play song error:', error);
-      this.playerState = PlayerState.STOPPED;
-      this.notifyStateChange(this.playerState);
+      if (epoch === this.playbackEpoch) {
+        this.playerState = PlayerState.STOPPED;
+        this.notifyStateChange(this.playerState);
+        this.notifyError('播放失败，请稍后重试');
+      }
     }
   }
 
@@ -443,6 +491,14 @@ export class PlayerService {
     this.currentIndex = startIndex;
   }
 
+  async playAt(index: number): Promise<void> {
+    if (index < 0 || index >= this.playlist.length) {
+      return;
+    }
+    this.currentIndex = index;
+    await this.playSong(this.playlist[index]);
+  }
+
   getCurrentSong(): Song | null {
     return this.currentSong;
   }
@@ -505,10 +561,35 @@ export class PlayerService {
     ];
   }
 
+  reset() {
+    this.playbackEpoch++;
+    this.playQueue = Promise.resolve();
+    this.currentSong = null;
+    this.playlist = [];
+    this.currentIndex = -1;
+    this.playerState = PlayerState.STOPPED;
+    this.currentPosition = 0;
+    this.duration = 0;
+    this.lyrics = [];
+    this.currentLyricIndex = -1;
+    this.historyRecorded = false;
+    this.notifyProgressChange(0, 0);
+    this.notifySongChange(null);
+    this.notifyStateChange(PlayerState.STOPPED);
+    this.notifyLyricChange(-1, '');
+  }
+
   async release() {
-    if (this.avPlayer) {
-      await this.avPlayer.release();
-      this.avPlayer = null;
+    this.playbackEpoch++;
+    const player: media.AVPlayer | null = this.avPlayer;
+    this.avPlayer = null;
+    this.playQueue = Promise.resolve();
+    if (player) {
+      try {
+        await player.release();
+      } catch (e) {
+        console.error('Release player error:', e);
+      }
     }
     await this.closeRawFd();
   }

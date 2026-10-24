@@ -21,6 +21,12 @@ export default class EntryAbility extends UIAbility {
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'EntryAbility onCreate');
 
+    // 必须在第一个 await 之前解析 Want：框架不会等待异步 onCreate 完成
+    const params = want.parameters;
+    this.showLogin = params !== undefined && params['showLogin'] === true;
+    const fromWidget: boolean = params !== undefined && params['from'] === 'widget';
+    AppStorage.setOrCreate<boolean>('skipWelcomeDelay', fromWidget);
+
     this.storageService.setContext(this.context);
     this.authService.setContext(this.context);
 
@@ -33,9 +39,6 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate<string>('bgImage', savedBgImage);
     const savedBgOpacity: number = await this.storageService.getBgOpacity();
     AppStorage.setOrCreate<number>('bgOpacity', savedBgOpacity);
-
-    const params = want.parameters;
-    this.showLogin = params !== undefined && params['showLogin'] === true;
 
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);

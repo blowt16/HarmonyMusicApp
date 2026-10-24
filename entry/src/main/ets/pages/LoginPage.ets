@@ -249,7 +249,10 @@ struct LoginPage {
                 .fontSize(12)
                 .fontColor(this.accent)
                 .onClick(() => {
-                  this.agreed = !this.agreed;
+                  promptAction.showToast({
+                    message: '课程演示应用：固定账号本地校验，不连接真实账号系统，不保存密码。',
+                    duration: 2500
+                  });
                 })
             }
             .width('100%')

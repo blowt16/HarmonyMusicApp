@@ -5,7 +5,6 @@ import { Song, PlayerState, AudioQuality, SongQualityInfo } from '../models/Musi
 import { PlayerControls } from '../components/PlayerControls';
 import { LyricView } from '../components/LyricView';
 import router from '@ohos.router';
-import { promptAction } from '@kit.ArkUI';
 import { window } from '@kit.ArkUI';
 
 @Entry
@@ -34,7 +33,6 @@ struct PlayPage {
 
   private songListener: ((song: Song | null) => void) | null = null;
   private stateListener: ((state: PlayerState) => void) | null = null;
-  private errorListener: ((message: string) => void) | null = null;
 
   async aboutToAppear() {
     this.applyPlayerTokens();
@@ -45,10 +43,6 @@ struct PlayPage {
     this.currentQuality = this.playerService.getQuality();
     if (this.playerState === PlayerState.PLAYING) {
       this.startRotation();
-    }
-
-    if (this.currentSong) {
-      this.isFavorite = await this.storageService.isFavorite(this.currentSong.id);
     }
 
     this.songListener = async (song: Song | null) => {
@@ -72,10 +66,9 @@ struct PlayPage {
     };
     this.playerService.addStateChangeListener(this.stateListener);
 
-    this.errorListener = (message: string) => {
-      promptAction.showToast({ message, duration: 2000 });
-    };
-    this.playerService.addErrorListener(this.errorListener);
+    if (this.currentSong) {
+      this.isFavorite = await this.storageService.isFavorite(this.currentSong.id);
+    }
   }
 
   aboutToDisappear() {
@@ -87,9 +80,6 @@ struct PlayPage {
     }
     if (this.stateListener) {
       this.playerService.removeStateChangeListener(this.stateListener);
-    }
-    if (this.errorListener) {
-      this.playerService.removeErrorListener(this.errorListener);
     }
   }
 
@@ -454,7 +444,7 @@ struct PlayPage {
               .padding({ left: 20, right: 20, top: 12, bottom: 12 })
               .onClick(() => {
                 this.showPlaylist = false;
-                this.playerService.playSong(item);
+                this.playerService.playAt(index);
               })
             }
           })

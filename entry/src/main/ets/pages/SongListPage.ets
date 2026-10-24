@@ -118,8 +118,8 @@ struct SongListPage {
     Column() {
       Row() {
         Image(thumbnail(this.coverUrl, 320, 320))
-          .width(110)
-          .height(110)
+          .width(160)
+          .height(160)
           .borderRadius(16)
           .objectFit(ImageFit.Cover)
           .backgroundColor(this.accentLight)

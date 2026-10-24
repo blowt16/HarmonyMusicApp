@@ -46,7 +46,9 @@ export default class MainAbility extends UIAbility {
         } catch (err) {
           hilog.error(DOMAIN, 'testTag', 'Start EntryAbility failed: %{public}s', JSON.stringify(err));
         }
-        await this.context.terminateSelf();
+        setTimeout(() => {
+          this.context.terminateSelf();
+        }, 800);
         return;
       }
 
@@ -135,6 +137,7 @@ export default class MainAbility extends UIAbility {
     try {
       this.playerService.stop();
       await this.playerService.release();
+      this.playerService.reset();
     } catch (err) {
       hilog.error(DOMAIN, 'testTag', 'Failed to release player: %{public}s', JSON.stringify(err));
     }
