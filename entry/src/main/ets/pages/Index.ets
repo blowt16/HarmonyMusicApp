@@ -545,6 +545,7 @@ struct Index {
     .padding({ left: 16, right: 16 })
     .backgroundColor(this.bgSecondary)
     .borderRadius(23)
+    .margin({ top: 12 })
     .onClick(() => {
       this.tabsController.changeIndex(1);
     })
