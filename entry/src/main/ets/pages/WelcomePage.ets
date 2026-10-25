@@ -8,7 +8,6 @@ struct WelcomePage {
   @StorageLink('bgPrimary') bgPrimary: string = '#F7F6F2';
   @StorageLink('textPrimary') textPrimary: string = '#17181A';
   @StorageLink('textSecondary') textSecondary: string = '#6B6F76';
-  @StorageLink('accent') accent: string = '#C8424C';
 
   private timer: number = 0;
   private navigating: boolean = false;
@@ -109,19 +108,6 @@ struct WelcomePage {
           .margin({ top: 8 })
 
         Blank()
-
-        Button('立即进入')
-          .width(200)
-          .height(48)
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor('#FFFFFF')
-          .backgroundColor(this.accent)
-          .borderRadius(24)
-          .margin({ bottom: 56 })
-          .onClick(() => {
-            this.enterApp();
-          })
       }
       .width('100%')
       .height('100%')
