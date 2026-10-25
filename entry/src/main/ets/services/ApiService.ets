@@ -194,6 +194,52 @@ interface PersonalizedApiResponse {
   result: PersonalizedPlaylistItem[];
 }
 
+interface PersonalizedNewSongArtist {
+  name: string;
+}
+
+interface PersonalizedNewSongAlbum {
+  id: number;
+  name: string;
+  picUrl: string;
+}
+
+interface PersonalizedNewSongMusic {
+  br: number;
+  size: number;
+  sr: number;
+}
+
+interface PersonalizedNewSongPrivilege {
+  pl?: number;
+}
+
+interface PersonalizedNewSongDetail {
+  id: number;
+  name: string;
+  duration: number;
+  fee?: number;
+  artists: PersonalizedNewSongArtist[];
+  album: PersonalizedNewSongAlbum;
+  lMusic?: PersonalizedNewSongMusic | null;
+  mMusic?: PersonalizedNewSongMusic | null;
+  hMusic?: PersonalizedNewSongMusic | null;
+  sqMusic?: PersonalizedNewSongMusic | null;
+  privilege?: PersonalizedNewSongPrivilege;
+}
+
+interface PersonalizedNewSongItem {
+  id: number;
+  name: string;
+  picUrl: string;
+  song: PersonalizedNewSongDetail;
+}
+
+interface PersonalizedNewSongResponse {
+  code: number;
+  result: PersonalizedNewSongItem[];
+}
+
 // ===== 专辑推荐 API =====
 
 interface NewAlbumArtist {
@@ -772,6 +818,75 @@ export class ApiService {
       return [];
     } catch (error) {
       console.error('Get personalized playlists error:', error);
+      return [];
+    }
+  }
+
+  async getRecommendedSongs(limit: number = 12): Promise<Song[]> {
+    try {
+      const url: string = `${API_ORIGIN}/api/personalized/newsong?limit=${limit}`;
+      const response = await this.httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        connectTimeout: ApiService.CONNECT_TIMEOUT,
+        readTimeout: ApiService.READ_TIMEOUT,
+        header: {
+          'Referer': 'https://music.163.com'
+        }
+      });
+
+      if (response.responseCode === 200) {
+        const data: PersonalizedNewSongResponse = JSON.parse(response.result as string) as PersonalizedNewSongResponse;
+        if (data.code === 200 && data.result) {
+          const songs: Song[] = [];
+          for (const item of data.result) {
+            const detail: PersonalizedNewSongDetail = item.song;
+            if (!detail) {
+              continue;
+            }
+            const artistNames: string = detail.artists ? detail.artists.map((a: PersonalizedNewSongArtist): string => a.name).join('/') : '未知';
+            const albumName: string = detail.album ? detail.album.name : '未知';
+            const coverUrl: string = ((detail.album && detail.album.picUrl) || item.picUrl || '').replace('http://', 'https://');
+
+            const qualities: SongQualityInfo[] = [];
+            if (detail.lMusic) {
+              qualities.push({ level: AudioQuality.STANDARD, br: detail.lMusic.br, size: detail.lMusic.size, sr: detail.lMusic.sr });
+            }
+            if (detail.mMusic) {
+              qualities.push({ level: AudioQuality.HIGHER, br: detail.mMusic.br, size: detail.mMusic.size, sr: detail.mMusic.sr });
+            }
+            if (detail.hMusic) {
+              qualities.push({ level: AudioQuality.EXHIGH, br: detail.hMusic.br, size: detail.hMusic.size, sr: detail.hMusic.sr });
+            }
+            if (detail.sqMusic) {
+              qualities.push({ level: AudioQuality.LOSSLESS, br: detail.sqMusic.br, size: detail.sqMusic.size, sr: detail.sqMusic.sr });
+            }
+
+            const playMaxBr: number = detail.privilege && detail.privilege.pl ? detail.privilege.pl : 0;
+            const fee: number = detail.fee !== undefined ? detail.fee : 0;
+            const playable: boolean = playMaxBr > 0 || fee === 0 || fee === 8;
+
+            songs.push({
+              id: detail.id,
+              name: detail.name,
+              artist: artistNames,
+              album: albumName,
+              albumId: detail.album ? detail.album.id : 0,
+              duration: detail.duration || 0,
+              url: '',
+              coverUrl: coverUrl,
+              lyric: '',
+              availableQualities: qualities,
+              fee,
+              playable,
+              maxBr: playMaxBr > 0 ? playMaxBr : this.maxQualityBr(qualities)
+            });
+          }
+          return songs;
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error('Get recommended songs error:', error);
       return [];
     }
   }

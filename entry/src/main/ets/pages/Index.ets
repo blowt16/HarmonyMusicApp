@@ -80,6 +80,8 @@ struct Index {
   @State featured: PlaylistInfo | null = null;
   @State recommendPlaylists: PlaylistInfo[] = [];
   @State hotPlaylists: PlaylistInfo[] = [];
+  @State recommendedSongs: Song[] = [];
+  @State recommendedSongsLoading: boolean = false;
   @State isLoadingHome: boolean = true;
   @State homeError: boolean = false;
 
@@ -120,6 +122,7 @@ struct Index {
   private errorListener: ((message: string) => void) | null = null;
   private isLoggingOut: boolean = false;
   private searchRequestId: number = 0;
+  private recommendedNoMore: boolean = false;
 
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
@@ -198,8 +201,11 @@ struct Index {
     try {
       const albums: PlaylistInfo[] = await this.apiService.getNewAlbums(8);
       const tops: PlaylistInfo[] = await this.apiService.getPersonalizedPlaylists(8);
+      const songs: Song[] = await this.apiService.getRecommendedSongs(30);
       this.recommendPlaylists = albums;
       this.hotPlaylists = tops;
+      this.recommendedSongs = songs;
+      this.recommendedNoMore = false;
       if (albums.length > 0) {
         this.featured = albums[0];
       } else if (tops.length > 0) {
@@ -220,6 +226,41 @@ struct Index {
       return this.hotPlaylists;
     }
     return this.featured ? [this.featured] : [];
+  }
+
+  getRecommendedSongPages(): Song[][] {
+    const pages: Song[][] = [];
+    for (let i = 0; i < this.recommendedSongs.length; i += 3) {
+      pages.push(this.recommendedSongs.slice(i, i + 3));
+    }
+    return pages;
+  }
+
+  isFavoriteSong(song: Song): boolean {
+    return this.favorites.some((item: Song): boolean => item.id === song.id);
+  }
+
+  async toggleFavoriteSong(song: Song) {
+    await this.storageService.toggleFavorite(song);
+    await this.refreshLibrary();
+    WidgetService.refreshAll();
+  }
+
+  async loadMoreRecommendedSongs() {
+    if (this.recommendedSongsLoading || this.recommendedNoMore) {
+      return;
+    }
+    this.recommendedSongsLoading = true;
+    const songs: Song[] = await this.apiService.getRecommendedSongs(100);
+    const existingIds: Set<number> = new Set(this.recommendedSongs.map((song: Song): number => song.id));
+    const fresh: Song[] = songs.filter((song: Song): boolean => !existingIds.has(song.id));
+    if (fresh.length === 0) {
+      this.recommendedNoMore = true;
+      promptAction.showToast({ message: '没有更多推荐了', duration: 1500 });
+    } else {
+      this.recommendedSongs = this.recommendedSongs.concat(fresh);
+    }
+    this.recommendedSongsLoading = false;
   }
 
   formatPlayCount(count: number): string {
@@ -629,41 +670,6 @@ struct Index {
   }
 
   @Builder
-  PlaylistCard(playlist: PlaylistInfo) {
-    Column() {
-      Image(thumbnail(playlist.coverUrl, 300, 300))
-        .width(150)
-        .height(150)
-        .borderRadius(14)
-        .objectFit(ImageFit.Cover)
-        .backgroundColor(this.accentLight)
-
-      Text(playlist.name)
-        .fontSize(14)
-        .fontColor(this.textPrimary)
-        .fontWeight(FontWeight.Medium)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('100%')
-        .margin({ top: 8 })
-
-      Text(playlist.isAlbum ? (playlist.creator || '专辑') :
-        `${playlist.songCount} 首${playlist.playCount > 0 ? ' · ' + this.formatPlayCount(playlist.playCount) : ''}`)
-        .fontSize(12)
-        .fontColor(this.textTertiary)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('100%')
-        .margin({ top: 3 })
-    }
-    .width(150)
-    .margin({ right: 14 })
-    .onClick(() => {
-      this.openPlaylist(playlist);
-    })
-  }
-
-  @Builder
   SongCard(song: Song, songs: Song[], index: number) {
     Column() {
       if (song.coverUrl) {
@@ -707,6 +713,74 @@ struct Index {
     .onClick(() => {
       this.playSongsAt(songs, index);
     })
+  }
+
+  @Builder
+  RecommendedSongRow(song: Song, index: number) {
+    Row() {
+      Row() {
+        Image(thumbnail(song.coverUrl, 120, 120))
+          .width(48)
+          .height(48)
+          .borderRadius(10)
+          .objectFit(ImageFit.Cover)
+          .backgroundColor(this.accentLight)
+          .margin({ right: 12 })
+
+        Column() {
+          Row() {
+            Text(song.name)
+              .fontSize(15)
+              .fontColor(song.id === this.currentPlayingId ? this.accent : this.textPrimary)
+              .fontWeight(song.id === this.currentPlayingId ? FontWeight.Bold : FontWeight.Medium)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+
+            if (song.playable === false) {
+              Text(song.fee === 4 ? '付费' : 'VIP')
+                .fontSize(10)
+                .fontColor(this.accent)
+                .backgroundColor(this.accentLight)
+                .borderRadius(8)
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                .margin({ left: 6 })
+            }
+          }
+          .width('100%')
+
+          Text(song.artist)
+            .fontSize(12)
+            .fontColor(this.textTertiary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .margin({ top: 3 })
+            .width('100%')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+      .layoutWeight(1)
+      .onClick(() => {
+        this.playSongsAt(this.recommendedSongs, index);
+      })
+
+      Button() {
+        SymbolGlyph(this.isFavoriteSong(song) ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+          .fontSize(20)
+          .fontColor([this.isFavoriteSong(song) ? this.accent : this.textTertiary])
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(20)
+      .backgroundColor(Color.Transparent)
+      .onClick(() => {
+        this.toggleFavoriteSong(song);
+      })
+    }
+    .width('100%')
+    .height(64)
+    .padding({ left: 4, right: 4 })
   }
 
   @Builder
@@ -787,20 +861,31 @@ struct Index {
             .height(170)
           }
 
-          if (this.recommendPlaylists.length > 0) {
+          if (this.recommendedSongs.length > 0) {
             this.SectionTitle('为你推荐')
             List() {
-              ForEach(this.recommendPlaylists, (playlist: PlaylistInfo) => {
+              ForEach(this.getRecommendedSongPages(), (page: Song[], pageIndex: number) => {
                 ListItem() {
-                  this.PlaylistCard(playlist)
+                  Column() {
+                    ForEach(page, (song: Song, rowIndex: number) => {
+                      this.RecommendedSongRow(song, pageIndex * 3 + rowIndex)
+                    })
+                  }
+                  .width('100%')
+                  .height('100%')
                 }
+                .width('100%')
               })
             }
             .listDirection(Axis.Horizontal)
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
+            .scrollSnapAlign(ScrollSnapAlign.START)
             .width('100%')
-            .height(210)
+            .height(196)
+            .onReachEnd(() => {
+              this.loadMoreRecommendedSongs();
+            })
           }
 
           if (this.history.length > 0) {
