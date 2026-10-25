@@ -182,6 +182,6 @@ export struct ProfileView {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.bgPrimary)
+    .backgroundColor(Color.Transparent)
   }
 }

@@ -9,6 +9,7 @@ export struct SongItem {
   @StorageLink('accentLight') accentLight: string = '#FFF5F5';
   @StorageLink('bgPrimary') bgPrimary: string = '#FFFFFF';
   @StorageLink('bgSecondary') bgSecondary: string = '#FFFFFF';
+  @StorageLink('bgImage') bgImage: string = '';
 
   @Prop song: Song;
   @Prop index: number;
@@ -63,7 +64,7 @@ export struct SongItem {
     .width('100%')
     .height(60)
     .padding({ left: 16, right: 16 })
-    .backgroundColor(this.isActive ? this.accentLight : this.bgSecondary)
+    .backgroundColor(this.isActive ? this.accentLight : (this.bgImage ? '#00000000' : this.bgSecondary))
     .onClick(() => {
       this.onItemClick(this.song, this.index);
     })

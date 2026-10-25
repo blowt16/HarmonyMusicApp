@@ -15,6 +15,7 @@ export struct FavoritesView {
   @StorageLink('accent') accent: string = '#C8424C';
   @StorageLink('accentLight') accentLight: string = '#FDEBED';
   @StorageLink('border') themeBorder: string = '#ECE8E0';
+  @StorageLink('bgImage') bgImage: string = '';
 
   @Prop favorites: Song[] = [];
   @Prop history: Song[] = [];
@@ -124,7 +125,7 @@ export struct FavoritesView {
     .width('100%')
     .height(64)
     .padding({ left: 20, right: 20 })
-    .backgroundColor(this.bgSecondary)
+    .backgroundColor(this.bgImage ? '#00000000' : this.bgSecondary)
     .onClick(() => {
       this.onPlaySong(song, songs, index);
     })
@@ -227,7 +228,7 @@ export struct FavoritesView {
           }
           .width('100%')
           .layoutWeight(1)
-          .backgroundColor(this.bgSecondary)
+          .backgroundColor(this.bgImage ? '#00000000' : this.bgSecondary)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
         }
@@ -237,6 +238,6 @@ export struct FavoritesView {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.bgPrimary)
+    .backgroundColor(Color.Transparent)
   }
 }

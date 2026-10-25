@@ -5,6 +5,8 @@ import { LOCAL_DEMO_SONG, LOCAL_FALLBACK_SONGS } from '../services/MockData';
 import router from '@ohos.router';
 import { promptAction } from '@kit.ArkUI';
 import picker from '@ohos.file.picker';
+import fs from '@ohos.file.fs';
+import { common } from '@kit.AbilityKit';
 import {
   HdsNavigation,
   HdsNavigationTitleMode,
@@ -13,6 +15,22 @@ import {
   BlurStrategy
 } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
+
+interface BuiltInBackground {
+  name: string;
+  rawFile: string;
+  preview: Resource;
+}
+
+const BUILTIN_BACKGROUNDS: BuiltInBackground[] = [
+  { name: '晨光', rawFile: 'backgrounds/bg_sunrise.jpg', preview: $rawfile('backgrounds/bg_sunrise.jpg') },
+  { name: '天蓝', rawFile: 'backgrounds/bg_sky.jpg', preview: $rawfile('backgrounds/bg_sky.jpg') },
+  { name: '薄荷', rawFile: 'backgrounds/bg_mint.jpg', preview: $rawfile('backgrounds/bg_mint.jpg') },
+  { name: '柔光', rawFile: 'backgrounds/bg_pastel.jpg', preview: $rawfile('backgrounds/bg_pastel.jpg') },
+  { name: '玻璃', rawFile: 'backgrounds/bg_glass.jpg', preview: $rawfile('backgrounds/bg_glass.jpg') },
+  { name: '现场', rawFile: 'backgrounds/bg_concert.jpg', preview: $rawfile('backgrounds/bg_concert.jpg') },
+  { name: '黑胶', rawFile: 'backgrounds/bg_vinyl.jpg', preview: $rawfile('backgrounds/bg_vinyl.jpg') }
+];
 
 @Component
 struct EffectLevelOption {
@@ -125,6 +143,38 @@ struct SettingsPage {
     promptAction.showToast({ message: '已恢复默认背景', duration: 1500 });
   }
 
+  isBuiltInSelected(bg: BuiltInBackground): boolean {
+    const fileName: string = bg.rawFile.substring(bg.rawFile.lastIndexOf('/') + 1);
+    return this.bgImage.endsWith(fileName);
+  }
+
+  async applyBuiltInBackground(bg: BuiltInBackground) {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const data: Uint8Array = await context.resourceManager.getRawFileContent(bg.rawFile);
+      const dir: string = context.filesDir + '/backgrounds';
+      if (!fs.accessSync(dir)) {
+        fs.mkdirSync(dir);
+      }
+      const fileName: string = bg.rawFile.substring(bg.rawFile.lastIndexOf('/') + 1);
+      const path: string = dir + '/' + fileName;
+      const file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, data.buffer);
+      fs.closeSync(file);
+      const uri: string = 'file://' + path;
+      AppStorage.setOrCreate<string>('bgImage', uri);
+      await this.storageService.setBgImage(uri);
+      // 内置背景默认至少 35% 遮罩，避免主界面文字压在彩色图上不好读
+      if (this.bgOpacity < 0.35) {
+        await this.setBgOpacity(0.35);
+      }
+      promptAction.showToast({ message: '背景已应用', duration: 1500 });
+    } catch (e) {
+      console.error('Apply built-in background error:', e);
+      promptAction.showToast({ message: '背景设置失败，请重试', duration: 2000 });
+    }
+  }
+
   async setBgOpacity(opacity: number) {
     AppStorage.setOrCreate<number>('bgOpacity', opacity);
     await this.storageService.setBgOpacity(opacity);
@@ -176,6 +226,7 @@ struct SettingsPage {
             .opacity(this.bgOpacity)
         }
         .width('100%')
+        .height(120)
         .margin({ bottom: 12 })
       }
 
@@ -189,6 +240,48 @@ struct SettingsPage {
         .onClick(() => {
           this.pickBgImage();
         })
+
+      Text('推荐背景')
+        .width('100%')
+        .textAlign(TextAlign.Start)
+        .fontSize(13)
+        .fontColor(this.textSecondary)
+        .margin({ top: 14, bottom: 8 })
+
+      List({ space: 10 }) {
+        ForEach(BUILTIN_BACKGROUNDS, (bg: BuiltInBackground) => {
+          ListItem() {
+            Column() {
+              Image(bg.preview)
+                .width(72)
+                .height(128)
+                .borderRadius(10)
+                .objectFit(ImageFit.Cover)
+                .border({
+                  width: this.isBuiltInSelected(bg) ? 2 : 0,
+                  color: this.accent
+                })
+
+              Text(bg.name)
+                .fontSize(11)
+                .fontColor(this.textSecondary)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width(72)
+                .textAlign(TextAlign.Center)
+                .margin({ top: 4 })
+            }
+            .width(72)
+            .onClick(() => {
+              this.applyBuiltInBackground(bg);
+            })
+          }
+        })
+      }
+      .listDirection(Axis.Horizontal)
+      .scrollBar(BarState.Off)
+      .width('100%')
+      .height(152)
 
       if (this.bgImage) {
         Row() {
@@ -229,7 +322,7 @@ struct SettingsPage {
           })
       }
 
-      Text('背景图片仅影响主界面，播放页固定深色沉浸。')
+      Text('背景图片会显示在主界面、搜索、收藏和歌单页，播放页固定深色沉浸。')
         .fontSize(11)
         .fontColor(this.textTertiary)
         .margin({ top: 12 })

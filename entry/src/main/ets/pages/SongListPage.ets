@@ -23,6 +23,9 @@ struct SongListPage {
   @StorageLink('textTertiary') textTertiary: string = '#9A9EA5';
   @StorageLink('accent') accent: string = '#C8424C';
   @StorageLink('accentLight') accentLight: string = '#FDEBED';
+  @StorageLink('bgImage') bgImage: string = '';
+  @StorageLink('bgOpacity') bgOpacity: number = 0.15;
+  @StorageLink('isDark') isDark: boolean = false;
 
   @State playlistName: string = '';
   @State playlistId: number = 0;
@@ -218,107 +221,130 @@ struct SongListPage {
   }
 
   build() {
-    HdsNavigation() {
-      Column() {
+    Stack() {
+      Row()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(this.bgPrimary)
+
+      if (this.bgImage) {
+        Image(this.bgImage)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
         Row()
-          .height(110)
           .width('100%')
+          .height('100%')
+          .backgroundColor(this.isDark ? '#000000' : '#F7F6F2')
+          .opacity(this.bgOpacity)
+      }
 
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(36)
-              .height(36)
-              .color(this.accent)
-            Text('加载歌曲列表中…')
-              .fontSize(13)
-              .fontColor(this.textTertiary)
-              .margin({ top: 10 })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else if (this.songs.length === 0) {
-          Column() {
-            Text('该歌单暂无歌曲')
-              .fontSize(15)
-              .fontColor(this.textPrimary)
-            Button('重新加载')
-              .height(38)
-              .fontSize(14)
-              .fontColor('#FFFFFF')
-              .backgroundColor(this.accent)
-              .borderRadius(19)
-              .margin({ top: 14 })
-              .onClick(() => {
-                this.loadPlaylistDetail();
-              })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else {
-          Column() {
-            this.PlaylistHeader()
+      HdsNavigation() {
+        Column() {
+          Row()
+            .height(110)
+            .width('100%')
 
-            List() {
-              ForEach(this.songs, (song: Song, index: number) => {
-                ListItem() {
-                  SongItem({
-                    song: song,
-                    index: index,
-                    isActive: song.id === this.currentPlayingId,
-                    onItemClick: (clickedSong: Song, clickedIndex: number) => {
-                      this.playSong(clickedSong, clickedIndex);
-                    }
-                  })
-                }
-              })
-              ListItem() {
-                Row().width('100%').height(120)
-              }
+          if (this.isLoading) {
+            Column() {
+              LoadingProgress()
+                .width(36)
+                .height(36)
+                .color(this.accent)
+              Text('加载歌曲列表中…')
+                .fontSize(13)
+                .fontColor(this.textTertiary)
+                .margin({ top: 10 })
             }
             .width('100%')
             .layoutWeight(1)
-            .margin({ top: 12 })
-            .backgroundColor(this.bgSecondary)
-            .borderRadius(20)
-            .clip(true)
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
+            .justifyContent(FlexAlign.Center)
+          } else if (this.songs.length === 0) {
+            Column() {
+              Text('该歌单暂无歌曲')
+                .fontSize(15)
+                .fontColor(this.textPrimary)
+              Button('重新加载')
+                .height(38)
+                .fontSize(14)
+                .fontColor('#FFFFFF')
+                .backgroundColor(this.accent)
+                .borderRadius(19)
+                .margin({ top: 14 })
+                .onClick(() => {
+                  this.loadPlaylistDetail();
+                })
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+          } else {
+            Column() {
+              this.PlaylistHeader()
+
+              List() {
+                ForEach(this.songs, (song: Song, index: number) => {
+                  ListItem() {
+                    SongItem({
+                      song: song,
+                      index: index,
+                      isActive: song.id === this.currentPlayingId,
+                      onItemClick: (clickedSong: Song, clickedIndex: number) => {
+                        this.playSong(clickedSong, clickedIndex);
+                      }
+                    })
+                  }
+                })
+                ListItem() {
+                  Row().width('100%').height(120)
+                }
+              }
+              .width('100%')
+              .layoutWeight(1)
+              .margin({ top: 12 })
+              .backgroundColor(this.bgImage ? '#00000000' : this.bgSecondary)
+              .borderRadius(20)
+              .clip(true)
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .padding({ left: 20, right: 20 })
           }
-          .width('100%')
-          .layoutWeight(1)
-          .padding({ left: 20, right: 20 })
         }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(Color.Transparent)
       }
+      .titleBar({
+        avoidLayoutSafeArea: true,
+        content: {
+          title: { mainTitle: '歌单' }
+        },
+        style: {
+          scrollEffectOpts: {
+            enableScrollEffect: true,
+            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+            blurEffectiveStartOffset: LengthMetrics.vp(0),
+            blurEffectiveEndOffset: LengthMetrics.vp(40)
+          },
+          blurStrategy: BlurStrategy.ADAPTIVE,
+          originalStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
+          scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
+          systemMaterialEffect: {
+            materialType: hdsMaterial.MaterialType.IMMERSIVE,
+            materialLevel: this.customMaterialLevel
+          }
+        }
+      })
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(false)
+      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
       .width('100%')
       .height('100%')
-      .backgroundColor(this.bgPrimary)
     }
-    .titleBar({
-      avoidLayoutSafeArea: true,
-      content: {
-        title: { mainTitle: '歌单' }
-      },
-      style: {
-        scrollEffectOpts: {
-          enableScrollEffect: true,
-          scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-          blurEffectiveStartOffset: LengthMetrics.vp(0),
-          blurEffectiveEndOffset: LengthMetrics.vp(40)
-        },
-        blurStrategy: BlurStrategy.ADAPTIVE,
-        originalStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
-        scrollEffectStyle: { backgroundStyle: { backgroundColor: '#00F7F6F2' } },
-        systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.IMMERSIVE,
-          materialLevel: this.customMaterialLevel
-        }
-      }
-    })
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .hideBackButton(false)
-    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+    .width('100%')
+    .height('100%')
   }
 }

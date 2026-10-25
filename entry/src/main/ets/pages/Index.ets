@@ -931,7 +931,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.bgPrimary)
+    .backgroundColor(Color.Transparent)
   }
 
   @Builder
@@ -1171,7 +1171,7 @@ struct Index {
                 .width('100%')
                 .height(64)
                 .padding({ left: 20, right: 20 })
-                .backgroundColor(this.bgSecondary)
+                .backgroundColor(this.bgImage ? '#00000000' : this.bgSecondary)
                 .onClick(() => {
                   this.playSearchResult(song, index);
                 })
@@ -1252,11 +1252,16 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.bgPrimary)
+    .backgroundColor(Color.Transparent)
   }
 
   build() {
     Stack() {
+      Row()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(this.bgPrimary)
+
       if (this.bgImage) {
         Image(this.bgImage)
           .width('100%')
