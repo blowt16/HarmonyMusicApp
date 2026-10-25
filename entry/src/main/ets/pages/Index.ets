@@ -1013,7 +1013,7 @@ struct Index {
               })
           }
           .width('100%')
-          .padding({ top: 8, bottom: 12 })
+          .padding({ left: 20, right: 20, top: 8, bottom: 12 })
 
           Flex({ wrap: FlexWrap.Wrap }) {
             ForEach(this.searchHistory, (keyword: string) => {
@@ -1031,6 +1031,7 @@ struct Index {
             })
           }
           .width('100%')
+          .padding({ left: 20, right: 20 })
         }
 
         if (this.searchLoading && this.searchResults.length === 0) {
@@ -1126,7 +1127,7 @@ struct Index {
               })
           }
           .width('100%')
-          .padding({ top: 4, bottom: 8 })
+          .padding({ left: 20, right: 20, top: 4, bottom: 8 })
 
           List() {
             ForEach(this.visibleSearchResults(), (song: Song, index: number) => {
@@ -1169,7 +1170,7 @@ struct Index {
                 }
                 .width('100%')
                 .height(64)
-                .padding({ left: 14, right: 14 })
+                .padding({ left: 20, right: 20 })
                 .backgroundColor(this.bgSecondary)
                 .onClick(() => {
                   this.playSearchResult(song, index);
@@ -1213,8 +1214,6 @@ struct Index {
           }
           .width('100%')
           .layoutWeight(1)
-          .borderRadius(20)
-          .clip(true)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
           .onReachEnd(() => {
@@ -1250,7 +1249,6 @@ struct Index {
       }
       .width('100%')
       .layoutWeight(1)
-      .padding({ left: 20, right: 20 })
     }
     .width('100%')
     .height('100%')

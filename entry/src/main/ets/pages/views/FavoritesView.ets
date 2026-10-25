@@ -123,7 +123,7 @@ export struct FavoritesView {
     }
     .width('100%')
     .height(64)
-    .padding({ left: 16, right: 16 })
+    .padding({ left: 20, right: 20 })
     .backgroundColor(this.bgSecondary)
     .onClick(() => {
       this.onPlaySong(song, songs, index);
@@ -209,7 +209,11 @@ export struct FavoritesView {
         }
 
         if (this.currentList().length === 0) {
-          this.EmptyBlock()
+          Column() {
+            this.EmptyBlock()
+          }
+          .width('100%')
+          .padding({ left: 20, right: 20 })
         } else {
           List({ space: 1 }) {
             ForEach(this.currentList(), (song: Song, index: number) => {
@@ -224,15 +228,12 @@ export struct FavoritesView {
           .width('100%')
           .layoutWeight(1)
           .backgroundColor(this.bgSecondary)
-          .borderRadius(20)
-          .clip(true)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
         }
       }
       .width('100%')
       .layoutWeight(1)
-      .padding({ left: 20, right: 20 })
     }
     .width('100%')
     .height('100%')
