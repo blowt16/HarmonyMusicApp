@@ -194,24 +194,6 @@ interface PersonalizedApiResponse {
   result: PersonalizedPlaylistItem[];
 }
 
-interface TopPlaylistApiCreator {
-  nickname: string;
-}
-
-interface TopPlaylistApiItem {
-  id: number;
-  name: string;
-  coverImgUrl: string;
-  trackCount: number;
-  playCount: number;
-  creator: TopPlaylistApiCreator;
-}
-
-interface TopPlaylistApiResponse {
-  code: number;
-  playlists: TopPlaylistApiItem[];
-}
-
 // ===== 专辑推荐 API =====
 
 interface NewAlbumArtist {
@@ -751,7 +733,7 @@ export class ApiService {
     }
   }
 
-  // 获取推荐歌单（个性化推荐 + 热门）
+  // 获取推荐歌单
   async getPersonalizedPlaylists(limit: number = 10): Promise<PlaylistInfo[]> {
     const cacheKey = `personalized:l${limit}`;
     const cached = this.cache.get(cacheKey);
@@ -760,7 +742,7 @@ export class ApiService {
     }
 
     try {
-      const url: string = `${API_ORIGIN}/api/personalized?limit=${limit}`;
+      const url: string = `${API_ORIGIN}/api/personalized/playlist?limit=${limit}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         connectTimeout: ApiService.CONNECT_TIMEOUT,
@@ -790,49 +772,6 @@ export class ApiService {
       return [];
     } catch (error) {
       console.error('Get personalized playlists error:', error);
-      return [];
-    }
-  }
-
-  // 获取热门歌单（按分类）
-  async getTopPlaylists(category: string = '全部', limit: number = 10): Promise<PlaylistInfo[]> {
-    const cacheKey = `top:${category}:l${limit}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached) as PlaylistInfo[];
-    }
-
-    try {
-      const url: string = `${API_ORIGIN}/api/top/playlist?cat=${encodeURIComponent(category)}&limit=${limit}&order=hot`;
-      const response = await this.httpRequest.request(url, {
-        method: http.RequestMethod.GET,
-        connectTimeout: ApiService.CONNECT_TIMEOUT,
-        readTimeout: ApiService.READ_TIMEOUT,
-        header: {
-          'Referer': 'https://music.163.com'
-        }
-      });
-
-      if (response.responseCode === 200) {
-        const data: TopPlaylistApiResponse = JSON.parse(response.result as string) as TopPlaylistApiResponse;
-        if (data.code === 200 && data.playlists) {
-          const playlists = data.playlists.map((item: TopPlaylistApiItem): PlaylistInfo => {
-            return {
-              id: item.id,
-              name: item.name,
-              coverUrl: (item.coverImgUrl || '').replace('http://', 'https://'),
-              songCount: item.trackCount || 0,
-              playCount: item.playCount || 0,
-              creator: item.creator ? item.creator.nickname : '未知'
-            };
-          });
-          this.cache.set(cacheKey, playlists, ApiService.TTL_TOP_PLAYLIST);
-          return playlists;
-        }
-      }
-      return [];
-    } catch (error) {
-      console.error('Get top playlists error:', error);
       return [];
     }
   }

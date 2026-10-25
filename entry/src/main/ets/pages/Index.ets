@@ -197,7 +197,7 @@ struct Index {
     this.homeError = false;
     try {
       const albums: PlaylistInfo[] = await this.apiService.getNewAlbums(8);
-      const tops: PlaylistInfo[] = await this.apiService.getTopPlaylists('全部', 8);
+      const tops: PlaylistInfo[] = await this.apiService.getPersonalizedPlaylists(8);
       this.recommendPlaylists = albums;
       this.hotPlaylists = tops;
       if (albums.length > 0) {
@@ -215,18 +215,11 @@ struct Index {
     this.isLoadingHome = false;
   }
 
-  greeting(): string {
-    const hour: number = new Date().getHours();
-    if (hour < 6) {
-      return '夜深了';
+  getRecommendedPlaylists(): PlaylistInfo[] {
+    if (this.hotPlaylists.length > 0) {
+      return this.hotPlaylists;
     }
-    if (hour < 12) {
-      return '早上好';
-    }
-    if (hour < 18) {
-      return '下午好';
-    }
-    return '晚上好';
+    return this.featured ? [this.featured] : [];
   }
 
   formatPlayCount(count: number): string {
@@ -571,72 +564,67 @@ struct Index {
   }
 
   @Builder
-  FeaturedCard() {
-    if (this.featured) {
-      Stack({ alignContent: Alignment.BottomStart }) {
-        Image(thumbnail(this.featured.coverUrl, 800, 450))
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Cover)
-          .backgroundColor(this.accentLight)
-
-        Column()
-          .width('100%')
-          .height('100%')
-          .linearGradient({
-            angle: 180,
-            colors: [['#00000000', 0.0], ['#B30B0C10', 0.62], ['#E60B0C10', 1.0]]
-          })
-
-        Row() {
-          Column() {
-            Text('精选推荐')
-              .fontSize(11)
-              .fontColor('#FFD7D9')
-            Text(this.featured.name)
-              .fontSize(22)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#FFFFFF')
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .margin({ top: 4 })
-            Text(this.featured.isAlbum ? (this.featured.creator || '清听精选') : `${this.featured.songCount} 首`)
-              .fontSize(12)
-              .fontColor('#E8E3DE')
-              .margin({ top: 4 })
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-
-          Button() {
-            SymbolGlyph($r('sys.symbol.play_fill'))
-              .fontSize(24)
-              .fontColor(['#FFFFFF'])
-          }
-          .width(50)
-          .height(50)
-          .borderRadius(25)
-          .backgroundColor(this.accent)
-          .onClick(() => {
-            if (this.featured) {
-              this.openPlaylist(this.featured);
-            }
-          })
-        }
+  FeaturedCard(playlist: PlaylistInfo) {
+    Stack({ alignContent: Alignment.BottomStart }) {
+      Image(thumbnail(playlist.coverUrl, 800, 450))
         .width('100%')
-        .padding(18)
-        .alignItems(VerticalAlign.Bottom)
+        .height('100%')
+        .objectFit(ImageFit.Cover)
+        .backgroundColor(this.accentLight)
+
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 180,
+          colors: [['#00000000', 0.0], ['#B30B0C10', 0.62], ['#E60B0C10', 1.0]]
+        })
+
+      Row() {
+        Column() {
+          Text('精选推荐')
+            .fontSize(11)
+            .fontColor('#FFD7D9')
+          Text(playlist.name)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .margin({ top: 4 })
+          Text(playlist.isAlbum ? (playlist.creator || '清听精选') : `${playlist.songCount} 首`)
+            .fontSize(12)
+            .fontColor('#E8E3DE')
+            .margin({ top: 4 })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Button() {
+          SymbolGlyph($r('sys.symbol.play_fill'))
+            .fontSize(24)
+            .fontColor(['#FFFFFF'])
+        }
+        .width(50)
+        .height(50)
+        .borderRadius(25)
+        .backgroundColor(this.accent)
+        .onClick(() => {
+          this.openPlaylist(playlist);
+        })
       }
       .width('100%')
-      .aspectRatio(16 / 9)
-      .borderRadius(20)
-      .clip(true)
-      .onClick(() => {
-        if (this.featured) {
-          this.openPlaylist(this.featured);
-        }
-      })
+      .padding(18)
+      .alignItems(VerticalAlign.Bottom)
     }
+    .width(280)
+    .aspectRatio(16 / 9)
+    .margin({ right: 14 })
+    .borderRadius(20)
+    .clip(true)
+    .onClick(() => {
+      this.openPlaylist(playlist);
+    })
   }
 
   @Builder
@@ -776,53 +764,18 @@ struct Index {
 
       Scroll() {
         Column() {
-          Column() {
-            Text(this.greeting())
-              .fontSize(13)
-              .fontColor(this.textSecondary)
-            Text('听见每一天')
-              .fontSize(30)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.textPrimary)
-              .margin({ top: 4 })
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-          .padding({ top: 4, bottom: 16 })
-
           this.SearchPill()
 
-          Column() {
-            if (this.isLoadingHome && this.featured === null) {
-              this.HomeLoadingCard()
-            } else if (this.homeError) {
-              this.HomeErrorCard()
-            } else {
-              this.FeaturedCard()
-            }
-          }
-          .margin({ top: 18 })
-
-          this.SectionTitle('本地精选')
-          List() {
-            ForEach(LOCAL_FALLBACK_SONGS, (song: Song, index: number) => {
-              ListItem() {
-                this.SongCard(song, LOCAL_FALLBACK_SONGS, index)
-              }
-            })
-          }
-          .listDirection(Axis.Horizontal)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
-          .width('100%')
-          .height(200)
-
-          if (this.history.length > 0) {
-            this.SectionTitle('最近播放')
+          this.SectionTitle('推荐歌单')
+          if (this.isLoadingHome && this.featured === null) {
+            this.HomeLoadingCard()
+          } else if (this.homeError) {
+            this.HomeErrorCard()
+          } else {
             List() {
-              ForEach(this.history.slice(0, 10), (song: Song, index: number) => {
+              ForEach(this.getRecommendedPlaylists(), (playlist: PlaylistInfo) => {
                 ListItem() {
-                  this.SongCard(song, this.history, index)
+                  this.FeaturedCard(playlist)
                 }
               })
             }
@@ -830,7 +783,7 @@ struct Index {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .width('100%')
-            .height(200)
+            .height(170)
           }
 
           if (this.recommendPlaylists.length > 0) {
@@ -849,12 +802,12 @@ struct Index {
             .height(210)
           }
 
-          if (this.hotPlaylists.length > 0) {
-            this.SectionTitle('精选歌单')
+          if (this.history.length > 0) {
+            this.SectionTitle('最近播放')
             List() {
-              ForEach(this.hotPlaylists, (playlist: PlaylistInfo) => {
+              ForEach(this.history.slice(0, 10), (song: Song, index: number) => {
                 ListItem() {
-                  this.PlaylistCard(playlist)
+                  this.SongCard(song, this.history, index)
                 }
               })
             }
@@ -862,8 +815,22 @@ struct Index {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .width('100%')
-            .height(210)
+            .height(200)
           }
+
+          this.SectionTitle('本地精选')
+          List() {
+            ForEach(LOCAL_FALLBACK_SONGS, (song: Song, index: number) => {
+              ListItem() {
+                this.SongCard(song, LOCAL_FALLBACK_SONGS, index)
+              }
+            })
+          }
+          .listDirection(Axis.Horizontal)
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+          .width('100%')
+          .height(200)
 
           Blank()
             .height(120)
