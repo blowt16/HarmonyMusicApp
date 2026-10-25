@@ -11,3 +11,8 @@
 **/.test
 /.appanalyzer
 /.superpowers
+
+# 本地截图与临时素材
+/*.jpeg
+/.tmp-bg*/
+/.hvigor-build.out
