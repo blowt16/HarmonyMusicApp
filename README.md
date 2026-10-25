@@ -9,7 +9,7 @@ HarmonyOS 课程设计项目：在公开项目 [wyyhm6](https://github.com/Hanmi
 | 技术栈 | HarmonyOS 6.1.0(23) · ArkTS · ArkUI · AVPlayer · AVSession · Preferences · FormExtensionAbility |
 | 开发环境 | DevEco Studio，`modelVersion 6.0.2` |
 | 演示账号 | `demo / 123456`（本地校验，不连接真实账号系统） |
-| 主要文档 | [二次开发方案](docs/二次开发方案.md) · [验收测试记录](docs/验收测试记录.md) · [背景图来源](docs/背景图来源.md) |
+| 主要文档 | [开发方案](docs/开发方案.md) · [验收测试记录](docs/验收测试记录.md) |
 
 ## 目录
 
@@ -51,7 +51,7 @@ HarmonyOS 课程设计项目：在公开项目 [wyyhm6](https://github.com/Hanmi
 
 背景会显示在主界面、搜索、收藏和歌单页；这些页面的歌曲列表会随背景透明化。所有背景统一按 `ImageFit.Cover` 裁切填充，不会拉伸；播放页固定深色沉浸，不受背景设置影响。
 
-内置背景来自 [Pexels](https://www.pexels.com/)，按 [Pexels License](https://www.pexels.com/license/) 免费使用，文件与作者/来源对应关系见 [背景图来源](docs/背景图来源.md)。
+内置背景来自 [Pexels](https://www.pexels.com/)，按 [Pexels License](https://www.pexels.com/license/) 免费使用。
 
 ## 构建与运行
 
@@ -158,14 +158,9 @@ HarmonyMusicApp/
 
 | 文档 | 说明 |
 | --- | --- |
-| [二次开发方案（Markdown）](docs/二次开发方案.md) | 功能范围、技术方案、验收矩阵 |
-| [二次开发方案（HTML）](docs/二次开发方案.html) | 排版版本，含方案审阅入口 |
-| [方案审阅报告](docs/方案审阅报告.md) | 对二次开发方案的审查意见 |
-| [UI 调研与风格选择](docs/UI调研与风格选择.html) | 四种视觉风格调研与选择 |
+| [开发方案](docs/开发方案.md) | 功能范围、技术方案、验收矩阵 |
 | [课程设计要求](docs/课程设计要求.txt) | 课程验收与提交要求 |
 | [模拟器验收测试记录](docs/验收测试记录.md) | T01–T19 验收矩阵与增量验证 |
-| [背景图来源](docs/背景图来源.md) | Pexels 来源、许可与文件对应关系 |
-| [NOTICE](docs/NOTICE.md) | 上游项目与第三方素材署名 |
 
 ## 分支与提交
 
@@ -174,9 +169,9 @@ HarmonyMusicApp/
 
 ## 来源与署名
 
-本项目基于 [wyyhm6](https://github.com/Hanmiao33/wyyhm6)，并参考 [HarmonyPulse](https://github.com/ASweetBite/HarmonyPulse) 的多 Ability 与工程化思路。原始项目未标注许可证，本仓库为课程学习用途的公开仓库；第三方代码和素材的版权归原作者，若原作者要求删除会配合处理。完整说明见 [NOTICE](docs/NOTICE.md)。
+本项目基于 [wyyhm6](https://github.com/Hanmiao33/wyyhm6)，并参考 [HarmonyPulse](https://github.com/ASweetBite/HarmonyPulse) 的多 Ability 与工程化思路。原始项目未标注许可证，本仓库为课程学习用途的公开仓库；第三方代码和素材的版权归原作者，若原作者要求删除会配合处理。
 
-内置推荐背景来自 Pexels，具体来源与许可见 [背景图来源](docs/背景图来源.md)；[UI 调研与风格选择](docs/UI调研与风格选择.html) 中的第三方界面截图仅用于课程设计比较，版权归原应用/媒体所有。
+内置推荐背景来自 [Pexels](https://www.pexels.com/)，按 [Pexels License](https://www.pexels.com/license/) 免费使用。
 
 ## 已知限制
 
