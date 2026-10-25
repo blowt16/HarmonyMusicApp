@@ -119,6 +119,7 @@ struct Index {
   private miniStateListener: ((state: PlayerState) => void) | null = null;
   private errorListener: ((message: string) => void) | null = null;
   private isLoggingOut: boolean = false;
+  private searchRequestId: number = 0;
 
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
@@ -303,6 +304,7 @@ struct Index {
     if (!keyword) {
       return;
     }
+    const requestId: number = ++this.searchRequestId;
     this.searchLoading = true;
     this.searchError = false;
     this.loadMoreFailed = false;
@@ -313,6 +315,9 @@ struct Index {
     await this.loadSearchHistory();
 
     const result = await this.apiService.searchMusic(keyword, 1);
+    if (requestId !== this.searchRequestId) {
+      return;
+    }
     if (result.error === true) {
       this.searchError = true;
       this.searchResults = [];
@@ -328,15 +333,25 @@ struct Index {
     if (this.searchLoading || this.searchResults.length >= this.searchTotal) {
       return;
     }
-    this.searchLoading = true;
+    const requestId: number = this.searchRequestId;
+    const keyword: string = this.searchKeyword.trim();
     const nextPage: number = this.searchPage + 1;
-    const result = await this.apiService.searchMusic(this.searchKeyword.trim(), nextPage);
+    this.searchLoading = true;
+    const result = await this.apiService.searchMusic(keyword, nextPage);
+    if (requestId !== this.searchRequestId) {
+      return;
+    }
     if (result.error === true) {
       this.loadMoreFailed = true;
     } else {
-      this.searchPage = nextPage;
-      this.searchResults = this.searchResults.concat(result.songs);
-      this.searchTotal = result.total;
+      if (result.songs.length === 0) {
+        // 接口返回空页时视为已经到底，避免 onReachEnd 反复触发
+        this.searchTotal = this.searchResults.length;
+      } else {
+        this.searchPage = nextPage;
+        this.searchResults = this.searchResults.concat(result.songs);
+        this.searchTotal = result.total;
+      }
       this.loadMoreFailed = false;
     }
     this.searchLoading = false;
@@ -889,6 +904,10 @@ struct Index {
             .onChange((value: string) => {
               this.searchKeyword = value;
               if (value === '') {
+                this.searchRequestId++;
+                this.searchLoading = false;
+                this.searchPage = 1;
+                this.loadMoreFailed = false;
                 this.showHistory = true;
                 this.searchResults = [];
                 this.searchError = false;
@@ -1133,18 +1152,6 @@ struct Index {
                     this.loadMore();
                   })
               }
-            } else if (this.searchResults.length < this.searchTotal) {
-              ListItem() {
-                Text('加载更多')
-                  .fontSize(13)
-                  .fontColor(this.accent)
-                  .width('100%')
-                  .height(50)
-                  .textAlign(TextAlign.Center)
-                  .onClick(() => {
-                    this.loadMore();
-                  })
-              }
             }
 
             ListItem() {
@@ -1157,6 +1164,9 @@ struct Index {
           .clip(true)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+          .onReachEnd(() => {
+            this.loadMore();
+          })
         } else if (!this.showHistory) {
           Column() {
             Text('没有找到相关歌曲')
