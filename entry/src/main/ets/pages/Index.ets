@@ -108,6 +108,7 @@ struct Index {
   @State miniPlayerState: PlayerState = PlayerState.STOPPED;
   @State miniSupportsImmersive: boolean = false;
   @State miniBarExpanded: boolean = false;
+  @State miniCdRotation: number = 0;
 
   private apiService: ApiService = ApiService.getInstance();
   private playerService: PlayerService = PlayerService.getInstance();
@@ -123,6 +124,7 @@ struct Index {
   private isLoggingOut: boolean = false;
   private searchRequestId: number = 0;
   private recommendedNoMore: boolean = false;
+  private miniCdTimer: number = 0;
 
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
@@ -143,6 +145,8 @@ struct Index {
       this.miniCurrentSong = song;
       if (song) {
         this.currentPlayingId = song.id;
+      } else {
+        this.stopMiniCdRotation();
       }
     };
     this.playerService.addSongChangeListener(this.songListener);
@@ -152,9 +156,17 @@ struct Index {
     if (this.miniCurrentSong) {
       this.currentPlayingId = this.miniCurrentSong.id;
     }
+    if (this.miniPlayerState === PlayerState.PLAYING) {
+      this.startMiniCdRotation();
+    }
 
     this.miniStateListener = (state: PlayerState) => {
       this.miniPlayerState = state;
+      if (state === PlayerState.PLAYING) {
+        this.startMiniCdRotation();
+      } else {
+        this.stopMiniCdRotation();
+      }
     };
     this.playerService.addStateChangeListener(this.miniStateListener);
 
@@ -170,6 +182,7 @@ struct Index {
   }
 
   aboutToDisappear() {
+    this.stopMiniCdRotation();
     if (this.songListener) {
       this.playerService.removeSongChangeListener(this.songListener);
     }
@@ -182,8 +195,15 @@ struct Index {
   }
 
   onPageShow() {
+    if (this.miniPlayerState === PlayerState.PLAYING) {
+      this.startMiniCdRotation();
+    }
     this.refreshLibrary();
     WidgetService.refreshAll();
+  }
+
+  onPageHide() {
+    this.stopMiniCdRotation();
   }
 
   async refreshLibrary() {
@@ -437,6 +457,22 @@ struct Index {
     }
   }
 
+  startMiniCdRotation() {
+    if (this.miniCdTimer) {
+      return;
+    }
+    this.miniCdTimer = setInterval(() => {
+      this.miniCdRotation = (this.miniCdRotation + 1) % 360;
+    }, 50);
+  }
+
+  stopMiniCdRotation() {
+    if (this.miniCdTimer) {
+      clearInterval(this.miniCdTimer);
+      this.miniCdTimer = 0;
+    }
+  }
+
   openSettings() {
     router.pushUrl({ url: 'pages/SettingsPage' });
   }
@@ -500,6 +536,7 @@ struct Index {
             .borderRadius(23)
             .objectFit(ImageFit.Cover)
             .backgroundColor(this.accentLight)
+            .rotate({ angle: this.miniCdRotation })
 
           Column() {
             Text(this.miniCurrentSong.name || '未知歌曲')
@@ -557,6 +594,7 @@ struct Index {
             .borderRadius(23)
             .objectFit(ImageFit.Cover)
             .backgroundColor(this.accentLight)
+            .rotate({ angle: this.miniCdRotation })
         }
         .width('100%')
         .height('100%')
