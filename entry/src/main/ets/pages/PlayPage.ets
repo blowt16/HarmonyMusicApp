@@ -1,7 +1,7 @@
 import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
 import { thumbnail } from '../utils/ImageUtils';
-import { Song, PlayerState, AudioQuality, SongQualityInfo } from '../models/MusicModel';
+import { Song, PlayerState, AudioQuality, SongQualityInfo, EffectLevel } from '../models/MusicModel';
 import { PlayerControls } from '../components/PlayerControls';
 import { LyricView } from '../components/LyricView';
 import router from '@ohos.router';
@@ -16,6 +16,7 @@ struct PlayPage {
   @StorageLink('playerText') playerText: string = '#F5F5F7';
   @StorageLink('playerMuted') playerMuted: string = '#C9C7D0';
   @StorageLink('playerAccent') playerAccent: string = '#FF6B72';
+  @StorageLink('effectLevel') effectLevel: number = EffectLevel.MEDIUM;
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   @State currentSong: Song | null = null;
@@ -130,6 +131,32 @@ struct PlayPage {
     }
   }
 
+  getBackgroundBlur(): number {
+    switch (this.effectLevel) {
+      case EffectLevel.OFF:
+        return 0;
+      case EffectLevel.LOW:
+        return 20;
+      case EffectLevel.HIGH:
+        return 80;
+      default:
+        return 50;
+    }
+  }
+
+  getBackgroundOverlayOpacity(): number {
+    switch (this.effectLevel) {
+      case EffectLevel.OFF:
+        return 1.0;
+      case EffectLevel.LOW:
+        return 0.85;
+      case EffectLevel.HIGH:
+        return 0.6;
+      default:
+        return 0.74;
+    }
+  }
+
   async toggleFavorite() {
     if (!this.currentSong) {
       return;
@@ -206,13 +233,13 @@ struct PlayPage {
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
-          .blur(50)
+          .blur(this.getBackgroundBlur())
           .scale({ x: 1.25, y: 1.25 })
         Row()
           .width('100%')
           .height('100%')
           .backgroundColor(this.playerBg)
-          .opacity(0.74)
+          .opacity(this.getBackgroundOverlayOpacity())
       } else {
         Column()
           .width('100%')
