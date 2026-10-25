@@ -23,6 +23,14 @@ interface QualityDetail {
   sr: number;
 }
 
+interface SongPrivilege {
+  pl?: number;
+  dl?: number;
+  st?: number;
+  fee?: number;
+  maxbr?: number;
+}
+
 interface SongItem {
   id: number;
   name: string;
@@ -34,6 +42,8 @@ interface SongItem {
   h?: QualityDetail;
   sq?: QualityDetail;
   hr?: QualityDetail;
+  fee?: number;
+  privilege?: SongPrivilege;
 }
 
 interface SearchResultResult {
@@ -73,6 +83,11 @@ interface DetailSongItem {
   artists: DetailArtistItem[];
   album: DetailAlbumItem;
   duration: number;
+  fee?: number;
+  l?: QualityDetail;
+  m?: QualityDetail;
+  h?: QualityDetail;
+  sq?: QualityDetail;
 }
 
 interface SongDetailData {
@@ -138,6 +153,12 @@ interface PlaylistDetailTrack {
   ar: PlaylistDetailTrackArtist[];
   al: PlaylistDetailTrackAlbum;
   dt: number;
+  fee?: number;
+  l?: QualityDetail;
+  m?: QualityDetail;
+  h?: QualityDetail;
+  sq?: QualityDetail;
+  hr?: QualityDetail;
 }
 
 interface PlaylistDetailTrackId {
@@ -251,6 +272,16 @@ export class ApiService {
     return headers;
   }
 
+  private maxQualityBr(qualities: SongQualityInfo[]): number {
+    let maxBr: number = 0;
+    for (const q of qualities) {
+      if (q.br > maxBr) {
+        maxBr = q.br;
+      }
+    }
+    return maxBr;
+  }
+
   async searchMusic(keyword: string, page: number = 1, limit: number = 20): Promise<SearchResult> {
     const cacheKey = `search:${keyword}:p${page}:l${limit}`;
     const cached = this.cache.get(cacheKey);
@@ -300,6 +331,10 @@ export class ApiService {
               qualities.push({ level: AudioQuality.LOSSLESS, br: item.sq.br, size: item.sq.size, sr: item.sq.sr });
             }
 
+            const playMaxBr: number = item.privilege && item.privilege.pl ? item.privilege.pl : 0;
+            const fee: number = item.fee !== undefined ? item.fee : 0;
+            const playable: boolean = playMaxBr > 0 || fee === 0 || fee === 8;
+
             return {
               id: item.id,
               name: item.name,
@@ -310,7 +345,10 @@ export class ApiService {
               url: '',
               coverUrl: coverUrl,
               lyric: '',
-              availableQualities: qualities
+              availableQualities: qualities,
+              fee,
+              playable,
+              maxBr: playMaxBr > 0 ? playMaxBr : this.maxQualityBr(qualities)
             };
           });
 
@@ -326,15 +364,19 @@ export class ApiService {
     }
   }
 
-  async getSongUrl(songId: number, quality: AudioQuality = AudioQuality.EXHIGH): Promise<string> {
-    const cacheKey = `songurl:${songId}:${quality}`;
+  async getSongUrl(songId: number, quality: AudioQuality = AudioQuality.EXHIGH, maxBr: number = 0): Promise<string> {
+    let effectiveQuality: number = quality;
+    if (maxBr > 0 && effectiveQuality > maxBr) {
+      effectiveQuality = maxBr;
+    }
+    const cacheKey = `songurl:${songId}:${effectiveQuality}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as string;
     }
 
     try {
-      const url: string = `${API_ORIGIN}/api/song/enhance/player/url?id=${songId}&ids=[${songId}]&br=${quality}`;
+      const url: string = `${API_ORIGIN}/api/song/enhance/player/url?id=${songId}&ids=[${songId}]&br=${effectiveQuality}`;
       const response = await this.httpRequest.request(url, {
         method: http.RequestMethod.GET,
         connectTimeout: ApiService.CONNECT_TIMEOUT,
@@ -357,7 +399,7 @@ export class ApiService {
       }
 
       // 高音质失败时，尝试标准音质
-      if (quality !== AudioQuality.STANDARD) {
+      if (effectiveQuality !== AudioQuality.STANDARD) {
         console.error('Failed to get high quality url, trying standard quality');
         return this.getSongUrl(songId, AudioQuality.STANDARD);
       }
@@ -446,6 +488,7 @@ export class ApiService {
           const albumName: string = songData.album ? songData.album.name : '未知';
           const coverUrl: string = songData.album ? (songData.album.picUrl || '') : '';
 
+          const fee: number = songData.fee !== undefined ? songData.fee : 0;
           const song: Song = {
             id: songData.id,
             name: songData.name,
@@ -455,7 +498,9 @@ export class ApiService {
             duration: songData.duration || 0,
             url: '',
             coverUrl: coverUrl,
-            lyric: ''
+            lyric: '',
+            fee,
+            playable: fee === 0 || fee === 8
           };
           this.cache.set(cacheKey, song, ApiService.TTL_SONG_DETAIL);
           return song;
@@ -561,6 +606,22 @@ export class ApiService {
             const albumName: string = track.al ? track.al.name : '未知';
             const coverUrl: string = track.al ? (track.al.picUrl || '').replace('http://', 'https://') : '';
 
+            const qualities: SongQualityInfo[] = [];
+            if (track.l) {
+              qualities.push({ level: AudioQuality.STANDARD, br: track.l.br, size: track.l.size, sr: track.l.sr });
+            }
+            if (track.m) {
+              qualities.push({ level: AudioQuality.HIGHER, br: track.m.br, size: track.m.size, sr: track.m.sr });
+            }
+            if (track.h) {
+              qualities.push({ level: AudioQuality.EXHIGH, br: track.h.br, size: track.h.size, sr: track.h.sr });
+            }
+            if (track.sq) {
+              qualities.push({ level: AudioQuality.LOSSLESS, br: track.sq.br, size: track.sq.size, sr: track.sq.sr });
+            }
+            const fee: number = track.fee !== undefined ? track.fee : 0;
+            const playable: boolean = fee === 0 || fee === 8;
+
             return {
               id: track.id,
               name: track.name,
@@ -570,7 +631,11 @@ export class ApiService {
               duration: track.dt || 0,
               url: '',
               coverUrl: coverUrl,
-              lyric: ''
+              lyric: '',
+              availableQualities: qualities,
+              fee,
+              playable,
+              maxBr: this.maxQualityBr(qualities)
             };
           });
 
@@ -647,6 +712,20 @@ export class ApiService {
             const artistNames: string = item.artists ? item.artists.map((a: DetailArtistItem): string => a.name).join('/') : '未知';
             const albumName: string = item.album ? item.album.name : '未知';
             const coverUrl: string = item.album ? (item.album.picUrl || '').replace('http://', 'https://') : '';
+            const qualities: SongQualityInfo[] = [];
+            if (item.l) {
+              qualities.push({ level: AudioQuality.STANDARD, br: item.l.br, size: item.l.size, sr: item.l.sr });
+            }
+            if (item.m) {
+              qualities.push({ level: AudioQuality.HIGHER, br: item.m.br, size: item.m.size, sr: item.m.sr });
+            }
+            if (item.h) {
+              qualities.push({ level: AudioQuality.EXHIGH, br: item.h.br, size: item.h.size, sr: item.h.sr });
+            }
+            if (item.sq) {
+              qualities.push({ level: AudioQuality.LOSSLESS, br: item.sq.br, size: item.sq.size, sr: item.sq.sr });
+            }
+            const fee: number = item.fee !== undefined ? item.fee : 0;
             return {
               id: item.id,
               name: item.name,
@@ -656,7 +735,11 @@ export class ApiService {
               duration: item.duration || 0,
               url: '',
               coverUrl: coverUrl,
-              lyric: ''
+              lyric: '',
+              availableQualities: qualities,
+              fee,
+              playable: fee === 0 || fee === 8,
+              maxBr: this.maxQualityBr(qualities)
             };
           });
         }

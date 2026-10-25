@@ -313,6 +313,30 @@ export class PlayerService {
     }
   }
 
+  canPlay(song: Song): boolean {
+    if (song.assetName || song.filePath) {
+      return true;
+    }
+    return song.playable !== false;
+  }
+
+  private findPlayableIndex(start: number, step: number): number {
+    const length: number = this.playlist.length;
+    if (length === 0) {
+      return -1;
+    }
+    for (let i = 0; i < length; i++) {
+      let index: number = (start + i * step) % length;
+      if (index < 0) {
+        index += length;
+      }
+      if (this.canPlay(this.playlist[index])) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
   playSong(song: Song): Promise<void> {
     const epoch: number = this.playbackEpoch;
     const run: Promise<void> = this.playQueue.then(async () => {
@@ -329,6 +353,18 @@ export class PlayerService {
 
   private async doPlaySong(song: Song, epoch: number): Promise<void> {
     console.info('playSong() called for:', song.name, 'id:', song.id);
+    if (!this.canPlay(song)) {
+      this.currentSong = song;
+      this.historyRecorded = false;
+      this.currentPosition = 0;
+      this.duration = song.duration > 0 ? song.duration / 1000 : 0;
+      this.notifyProgressChange(0, this.duration);
+      this.notifySongChange(song);
+      this.playerState = PlayerState.STOPPED;
+      this.notifyStateChange(this.playerState);
+      this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲或导入本地音乐');
+      return;
+    }
     try {
       console.info('Initializing player...');
       const player: media.AVPlayer = await this.initPlayer();
@@ -411,7 +447,7 @@ export class PlayerService {
 
       // 获取播放链接
       console.info('Getting song URL for id:', song.id, 'quality:', this.currentQuality);
-      const url: string = await this.apiService.getSongUrl(song.id, this.currentQuality);
+      const url: string = await this.apiService.getSongUrl(song.id, this.currentQuality, song.maxBr ?? 0);
       if (epoch !== this.playbackEpoch || this.avPlayer !== player) {
         return;
       }
@@ -430,7 +466,7 @@ export class PlayerService {
         this.duration = 0;
         this.notifyProgressChange(0, 0);
         this.notifyStateChange(this.playerState);
-        this.notifyError('暂时没有播放地址，请换一首歌');
+        this.notifyError('该歌曲暂无可用播放地址，请换一首歌');
         return;
       }
 
@@ -466,6 +502,10 @@ export class PlayerService {
       console.info('Resuming paused playback');
       this.avPlayer.play();
     } else if (this.currentSong) {
+      if (!this.canPlay(this.currentSong)) {
+        this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲或导入本地音乐');
+        return;
+      }
       console.info('Starting playback for:', this.currentSong.name);
       await this.playSong(this.currentSong);
     } else {
@@ -488,18 +528,27 @@ export class PlayerService {
   async playNext() {
     if (this.playlist.length === 0) return;
 
-    let nextIndex: number;
+    let start: number;
     switch (this.playMode) {
       case PlayMode.RANDOM:
-        nextIndex = Math.floor(Math.random() * this.playlist.length);
+        start = Math.floor(Math.random() * this.playlist.length);
         break;
       case PlayMode.SINGLE:
-        nextIndex = this.currentIndex;
-        break;
+        if (this.currentIndex >= 0 && this.canPlay(this.playlist[this.currentIndex])) {
+          await this.playSong(this.playlist[this.currentIndex]);
+        } else {
+          this.notifyError('当前歌曲为 VIP/付费歌曲，无法在线播放');
+        }
+        return;
       default:
-        nextIndex = (this.currentIndex + 1) % this.playlist.length;
+        start = this.currentIndex + 1;
     }
 
+    const nextIndex: number = this.findPlayableIndex(start, 1);
+    if (nextIndex < 0) {
+      this.notifyError('当前列表没有可在线播放的歌曲，可试试本地音乐');
+      return;
+    }
     this.currentIndex = nextIndex;
     await this.playSong(this.playlist[nextIndex]);
   }
@@ -507,15 +556,20 @@ export class PlayerService {
   async playPrevious() {
     if (this.playlist.length === 0) return;
 
-    let prevIndex: number;
+    let start: number;
     switch (this.playMode) {
       case PlayMode.RANDOM:
-        prevIndex = Math.floor(Math.random() * this.playlist.length);
+        start = Math.floor(Math.random() * this.playlist.length);
         break;
       default:
-        prevIndex = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
+        start = this.currentIndex - 1;
     }
 
+    const prevIndex: number = this.findPlayableIndex(start, -1);
+    if (prevIndex < 0) {
+      this.notifyError('当前列表没有可在线播放的歌曲，可试试本地音乐');
+      return;
+    }
     this.currentIndex = prevIndex;
     await this.playSong(this.playlist[prevIndex]);
   }
@@ -537,6 +591,10 @@ export class PlayerService {
 
   async playAt(index: number): Promise<void> {
     if (index < 0 || index >= this.playlist.length) {
+      return;
+    }
+    if (!this.canPlay(this.playlist[index])) {
+      this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲或导入本地音乐');
       return;
     }
     this.currentIndex = index;

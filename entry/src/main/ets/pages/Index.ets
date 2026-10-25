@@ -91,6 +91,7 @@ struct Index {
   // 搜索
   @State searchKeyword: string = '';
   @State searchResults: Song[] = [];
+  @State onlyPlayable: boolean = false;
   @State searchLoading: boolean = false;
   @State searchPage: number = 1;
   @State searchTotal: number = 0;
@@ -250,17 +251,41 @@ struct Index {
     });
   }
 
+  visibleSearchResults(): Song[] {
+    if (!this.onlyPlayable) {
+      return this.searchResults;
+    }
+    return this.searchResults.filter((song: Song) => this.playerService.canPlay(song));
+  }
+
   async playSongsAt(songs: Song[], index: number) {
+    if (index < 0 || index >= songs.length) {
+      return;
+    }
+    if (!this.playerService.canPlay(songs[index])) {
+      promptAction.showToast({
+        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲或导入本地音乐',
+        duration: 2500
+      });
+      return;
+    }
     this.playerService.setPlaylist(songs, index);
     await this.playerService.playSong(songs[index]);
     router.pushUrl({ url: 'pages/PlayPage' });
   }
 
   async playSearchResult(song: Song, index: number) {
-    this.playSongsAt(this.searchResults, index);
+    this.playSongsAt(this.visibleSearchResults(), index);
   }
 
   async playHistorySong(song: Song, songs: Song[], index: number) {
+    if (!this.playerService.canPlay(song)) {
+      promptAction.showToast({
+        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲或导入本地音乐',
+        duration: 2500
+      });
+      return;
+    }
     this.playerService.setPlaylist(songs, index);
     await this.playerService.playSong(song);
     router.pushUrl({ url: 'pages/PlayPage' });
@@ -985,17 +1010,54 @@ struct Index {
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
+        } else if (this.onlyPlayable && this.searchResults.length > 0 &&
+          this.visibleSearchResults().length === 0) {
+          Column() {
+            Text('当前结果都不可在线播放')
+              .fontSize(15)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.textPrimary)
+            Text('这些歌曲多为 VIP/付费或暂无版权；可以关闭筛选，或导入本地音乐。')
+              .fontSize(12)
+              .fontColor(this.textTertiary)
+              .margin({ top: 6 })
+              .textAlign(TextAlign.Center)
+            Button('关闭筛选')
+              .height(38)
+              .fontSize(14)
+              .fontColor('#FFFFFF')
+              .backgroundColor(this.accent)
+              .borderRadius(19)
+              .margin({ top: 14 })
+              .onClick(() => {
+                this.onlyPlayable = false;
+              })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
         } else if (this.searchResults.length > 0) {
           Row() {
             Text(`找到 ${this.searchTotal} 首歌曲`)
               .fontSize(13)
               .fontColor(this.textTertiary)
+            Blank()
+            Text(this.onlyPlayable ? '只看可播放 ✓' : '只看可播放')
+              .fontSize(12)
+              .fontColor(this.onlyPlayable ? this.accent : this.textTertiary)
+              .backgroundColor(this.onlyPlayable ? this.accentLight : this.bgSecondary)
+              .borderRadius(12)
+              .height(28)
+              .padding({ left: 10, right: 10 })
+              .onClick(() => {
+                this.onlyPlayable = !this.onlyPlayable;
+              })
           }
           .width('100%')
           .padding({ top: 4, bottom: 8 })
 
           List() {
-            ForEach(this.searchResults, (song: Song, index: number) => {
+            ForEach(this.visibleSearchResults(), (song: Song, index: number) => {
               ListItem() {
                 Row() {
                   Image(thumbnail(song.coverUrl, 120, 120))
@@ -1022,6 +1084,16 @@ struct Index {
                   }
                   .layoutWeight(1)
                   .alignItems(HorizontalAlign.Start)
+
+                  if (song.playable === false) {
+                    Text(song.fee === 4 ? '付费' : 'VIP')
+                      .fontSize(10)
+                      .fontColor(this.accent)
+                      .backgroundColor(this.accentLight)
+                      .borderRadius(8)
+                      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                      .margin({ left: 8 })
+                  }
                 }
                 .width('100%')
                 .height(64)

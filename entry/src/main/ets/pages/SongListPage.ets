@@ -97,6 +97,13 @@ struct SongListPage {
   }
 
   playSong(song: Song, index: number) {
+    if (!this.playerService.canPlay(song)) {
+      promptAction.showToast({
+        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲或导入本地音乐',
+        duration: 2500
+      });
+      return;
+    }
     this.playerService.setPlaylist(this.songs, index);
     this.playerService.playSong(song);
     router.pushUrl({ url: 'pages/PlayPage' });
@@ -106,7 +113,19 @@ struct SongListPage {
     if (this.songs.length === 0) {
       return;
     }
-    const index: number = random ? Math.floor(Math.random() * this.songs.length) : 0;
+    const playableIndices: number[] = [];
+    for (let i = 0; i < this.songs.length; i++) {
+      if (this.playerService.canPlay(this.songs[i])) {
+        playableIndices.push(i);
+      }
+    }
+    if (playableIndices.length === 0) {
+      promptAction.showToast({ message: '该歌单没有可在线播放的歌曲，可导入本地音乐', duration: 2500 });
+      return;
+    }
+    const index: number = random
+      ? playableIndices[Math.floor(Math.random() * playableIndices.length)]
+      : playableIndices[0];
     this.playerService.setPlayMode(random ? PlayMode.RANDOM : PlayMode.SEQUENCE);
     this.playerService.setPlaylist(this.songs, index);
     this.playerService.playSong(this.songs[index]);

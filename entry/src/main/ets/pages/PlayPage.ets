@@ -6,6 +6,7 @@ import { PlayerControls } from '../components/PlayerControls';
 import { LyricView } from '../components/LyricView';
 import router from '@ohos.router';
 import { window } from '@kit.ArkUI';
+import { promptAction } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -452,6 +453,13 @@ struct PlayPage {
               .padding({ left: 20, right: 20, top: 12, bottom: 12 })
               .onClick(() => {
                 this.showPlaylist = false;
+                if (!this.playerService.canPlay(item)) {
+                  promptAction.showToast({
+                    message: 'VIP/付费歌曲，演示环境无法在线播放',
+                    duration: 2000
+                  });
+                  return;
+                }
                 this.playerService.playAt(index);
               })
             }

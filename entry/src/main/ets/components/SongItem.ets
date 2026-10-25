@@ -46,6 +46,16 @@ export struct SongItem {
       .margin({ left: 12 })
       .alignItems(HorizontalAlign.Start)
 
+      if (this.song.playable === false) {
+        Text(this.song.fee === 4 ? '付费' : 'VIP')
+          .fontSize(10)
+          .fontColor(this.accent)
+          .backgroundColor(this.accentLight)
+          .borderRadius(8)
+          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+          .margin({ right: 8 })
+      }
+
       Text(this.formatDuration(this.song.duration))
         .fontSize(12)
         .fontColor(this.textTertiary)

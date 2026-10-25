@@ -11,6 +11,9 @@ export interface Song {
   availableQualities?: SongQualityInfo[];
   assetName?: string;
   filePath?: string;
+  fee?: number;
+  playable?: boolean;
+  maxBr?: number;
 }
 
 export interface Playlist {
