@@ -216,7 +216,7 @@ struct SongListPage {
     }
     .width('100%')
     .padding(18)
-    .backgroundColor(this.bgSecondary)
+    .backgroundColor(this.bgImage ? '#00000000' : this.bgSecondary)
     .borderRadius(20)
   }
 
