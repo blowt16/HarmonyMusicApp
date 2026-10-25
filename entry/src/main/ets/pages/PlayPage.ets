@@ -144,7 +144,10 @@ struct PlayPage {
         Text('‹')
           .fontSize(30)
           .fontColor(this.playerText)
+          .width('100%')
           .height(30)
+          .textAlign(TextAlign.Center)
+          .offset({ y: -4 })
       }
       .width(48)
       .height(48)
@@ -154,12 +157,14 @@ struct PlayPage {
         router.back();
       })
 
-      Text(this.swiperIndex === 0 ? '正在播放' : '歌词')
+      Text(this.swiperIndex === 0 ? '正在播放' : (this.currentSong?.name || '歌词'))
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.playerText)
-        .margin({ left: 14 })
-      Blank()
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+        .margin({ left: 14, right: 10 })
 
       Text(this.getQualityLabel(this.currentQuality))
         .fontSize(12)

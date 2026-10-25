@@ -54,12 +54,24 @@ export struct LyricView {
     const allLyrics: LyricLine[] = this.playerService.getLyrics();
     this.lyrics = (this.isLocalDemo || this.isLocalFile) ? [] : allLyrics;
     this.currentIndex = this.playerService.getCurrentLyricIndex();
+    if (this.currentIndex >= 0) {
+      setTimeout(() => {
+        this.scrollToCurrentLyric();
+      }, 100);
+    }
   }
 
   scrollToCurrentLyric() {
     if (this.currentIndex >= 0) {
-      this.scroller.scrollToIndex(this.currentIndex);
+      // 列表顶部有一个占位 ListItem，因此歌词实际下标要 +1
+      this.scroller.scrollToIndex(this.currentIndex + 1, true, ScrollAlign.CENTER);
     }
+  }
+
+  onLyricTap(lyric: LyricLine, index: number) {
+    this.playerService.seekTo(lyric.time);
+    this.currentIndex = index;
+    this.scrollToCurrentLyric();
   }
 
   build() {
@@ -73,14 +85,17 @@ export struct LyricView {
           ForEach(this.lyrics, (lyric: LyricLine, index: number) => {
             ListItem() {
               Text(lyric.text)
-                .fontSize(index === this.currentIndex ? 18 : 15)
+                .fontSize(index === this.currentIndex ? 22 : 17)
                 .fontColor(index === this.currentIndex ? this.playerAccent : this.playerMuted)
                 .fontWeight(index === this.currentIndex ? FontWeight.Bold : FontWeight.Medium)
                 .textAlign(TextAlign.Center)
                 .width('100%')
-                .padding({ top: 10, bottom: 10 })
+                .padding({ top: 14, bottom: 14 })
                 .animation({ duration: 300, curve: Curve.EaseOut })
             }
+            .onClick(() => {
+              this.onLyricTap(lyric, index);
+            })
           })
 
           ListItem() {
