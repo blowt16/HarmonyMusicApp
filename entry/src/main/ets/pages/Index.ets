@@ -316,7 +316,7 @@ struct Index {
     }
     if (!this.playerService.canPlay(songs[index])) {
       promptAction.showToast({
-        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲或导入本地音乐',
+        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲',
         duration: 2500
       });
       return;
@@ -333,7 +333,7 @@ struct Index {
   async playHistorySong(song: Song, songs: Song[], index: number) {
     if (!this.playerService.canPlay(song)) {
       promptAction.showToast({
-        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲或导入本地音乐',
+        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲',
         duration: 2500
       });
       return;
@@ -1124,7 +1124,7 @@ struct Index {
               .fontSize(15)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.textPrimary)
-            Text('这些歌曲多为 VIP/付费或暂无版权；可以关闭筛选，或导入本地音乐。')
+            Text('这些歌曲多为 VIP/付费或暂无版权；可以关闭筛选。')
               .fontSize(12)
               .fontColor(this.textTertiary)
               .margin({ top: 6 })

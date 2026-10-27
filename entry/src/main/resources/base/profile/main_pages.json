@@ -5,7 +5,6 @@
     "pages/Index",
     "pages/PlayPage",
     "pages/SettingsPage",
-    "pages/SongListPage",
-    "pages/LocalMusicPage"
+    "pages/SongListPage"
   ]
 }

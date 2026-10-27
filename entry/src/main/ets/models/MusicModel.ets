@@ -10,7 +10,6 @@ export interface Song {
   lyric: string;
   availableQualities?: SongQualityInfo[];
   assetName?: string;
-  filePath?: string;
   fee?: number;
   playable?: boolean;
   maxBr?: number;

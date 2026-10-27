@@ -311,14 +311,6 @@ struct PlayPage {
                   .borderRadius(10)
                   .padding({ left: 9, right: 9, top: 3, bottom: 3 })
                   .margin({ top: 12 })
-              } else if (this.currentSong?.filePath) {
-                Text('本地音乐')
-                  .fontSize(11)
-                  .fontColor(this.playerAccent)
-                  .backgroundColor('#33FF6B72')
-                  .borderRadius(10)
-                  .padding({ left: 9, right: 9, top: 3, bottom: 3 })
-                  .margin({ top: 12 })
               }
             }
             .width('100%')

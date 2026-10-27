@@ -1,6 +1,5 @@
 import media from '@ohos.multimedia.media';
 import resourceManager from '@ohos.resourceManager';
-import fs from '@ohos.file.fs';
 import { Song, PlayMode, PlayerState, LyricLine, AudioQuality, SongQualityInfo } from '../models/MusicModel';
 import { ApiService } from './ApiService';
 import { AudioSessionService, MediaCallbacks } from './AudioSessionService';
@@ -14,7 +13,6 @@ export class PlayerService {
   private storageService: StorageService;
   private resManager: resourceManager.ResourceManager | null = null;
   private rawFdPath: string = '';
-  private localFileFd: number = -1;
 
   private currentSong: Song | null = null;
   private historyRecorded: boolean = false;
@@ -123,17 +121,6 @@ export class PlayerService {
     this.resManager = manager;
   }
 
-  private closeLocalFileFd(): void {
-    if (this.localFileFd >= 0) {
-      try {
-        fs.closeSync(this.localFileFd);
-      } catch (e) {
-        console.error('Close local file fd error:', e);
-      }
-      this.localFileFd = -1;
-    }
-  }
-
   private async closeRawFd(): Promise<void> {
     if (this.resManager && this.rawFdPath) {
       try {
@@ -212,7 +199,6 @@ export class PlayerService {
       await oldPlayer.release();
     }
     await this.closeRawFd();
-    this.closeLocalFileFd();
 
     console.info('Creating new AVPlayer');
     const player: media.AVPlayer = await media.createAVPlayer();
@@ -312,7 +298,7 @@ export class PlayerService {
   }
 
   canPlay(song: Song): boolean {
-    if (song.assetName || song.filePath) {
+    if (song.assetName) {
       return true;
     }
     return song.playable !== false;
@@ -360,7 +346,7 @@ export class PlayerService {
       this.notifySongChange(song);
       this.playerState = PlayerState.STOPPED;
       this.notifyStateChange(this.playerState);
-      this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲或导入本地音乐');
+      this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲');
       return;
     }
     try {
@@ -384,32 +370,6 @@ export class PlayerService {
       this.playerState = PlayerState.LOADING;
       this.notifyStateChange(this.playerState);
       this.audioSessionService.updatePlaybackState(this.playerState, 0, this.duration);
-
-      // 用户导入的本地文件：直接读应用私有目录，不依赖网络
-      if (song.filePath) {
-        try {
-          const stat = fs.statSync(song.filePath);
-          const file = fs.openSync(song.filePath, fs.OpenMode.READ_ONLY);
-          this.localFileFd = file.fd;
-          player.fdSrc = {
-            fd: file.fd,
-            offset: 0,
-            length: stat.size
-          };
-          this.duration = song.duration > 0 ? song.duration / 1000 : 0;
-          this.lyrics = [];
-          this.currentLyricIndex = -1;
-          this.notifyProgressChange(0, this.duration);
-          this.notifyLyricChange(-1, '');
-        } catch (e) {
-          console.error('Load local file error:', e);
-          this.closeLocalFileFd();
-          this.playerState = PlayerState.STOPPED;
-          this.notifyStateChange(this.playerState);
-          this.notifyError('本地文件无法播放，可能已被移动或删除');
-        }
-        return;
-      }
 
       // 项目内置示例音频走 rawfile fdSrc，不依赖网络
       if (song.assetName) {
@@ -501,7 +461,7 @@ export class PlayerService {
       this.avPlayer.play();
     } else if (this.currentSong) {
       if (!this.canPlay(this.currentSong)) {
-        this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲或导入本地音乐');
+        this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲');
         return;
       }
       console.info('Starting playback for:', this.currentSong.name);
@@ -544,7 +504,7 @@ export class PlayerService {
 
     const nextIndex: number = this.findPlayableIndex(start, 1);
     if (nextIndex < 0) {
-      this.notifyError('当前列表没有可在线播放的歌曲，可试试本地音乐');
+      this.notifyError('当前列表没有可在线播放的歌曲');
       return;
     }
     this.currentIndex = nextIndex;
@@ -565,7 +525,7 @@ export class PlayerService {
 
     const prevIndex: number = this.findPlayableIndex(start, -1);
     if (prevIndex < 0) {
-      this.notifyError('当前列表没有可在线播放的歌曲，可试试本地音乐');
+      this.notifyError('当前列表没有可在线播放的歌曲');
       return;
     }
     this.currentIndex = prevIndex;
@@ -592,7 +552,7 @@ export class PlayerService {
       return;
     }
     if (!this.canPlay(this.playlist[index])) {
-      this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲或导入本地音乐');
+      this.notifyError('VIP/付费歌曲，演示环境无法在线播放，可换免费歌曲');
       return;
     }
     this.currentIndex = index;
@@ -642,7 +602,7 @@ export class PlayerService {
   setQuality(quality: AudioQuality) {
     this.currentQuality = quality;
     // 如果当前有歌曲在播放，重新加载（本地示例不重新加载）
-    if (this.currentSong && !this.currentSong.assetName && !this.currentSong.filePath &&
+    if (this.currentSong && !this.currentSong.assetName &&
       (this.playerState === PlayerState.PLAYING || this.playerState === PlayerState.PAUSED)) {
       this.playSong(this.currentSong);
     }
@@ -663,7 +623,6 @@ export class PlayerService {
 
   reset() {
     this.playbackEpoch++;
-    this.closeLocalFileFd();
     this.playQueue = Promise.resolve();
     this.currentSong = null;
     this.playlist = [];
@@ -693,6 +652,5 @@ export class PlayerService {
       }
     }
     await this.closeRawFd();
-    this.closeLocalFileFd();
   }
 }

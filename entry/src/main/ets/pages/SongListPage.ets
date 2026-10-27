@@ -102,7 +102,7 @@ struct SongListPage {
   playSong(song: Song, index: number) {
     if (!this.playerService.canPlay(song)) {
       promptAction.showToast({
-        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲或导入本地音乐',
+        message: 'VIP/付费歌曲，演示环境无法在线播放；可换免费歌曲',
         duration: 2500
       });
       return;
@@ -123,7 +123,7 @@ struct SongListPage {
       }
     }
     if (playableIndices.length === 0) {
-      promptAction.showToast({ message: '该歌单没有可在线播放的歌曲，可导入本地音乐', duration: 2500 });
+      promptAction.showToast({ message: '该歌单没有可在线播放的歌曲', duration: 2500 });
       return;
     }
     const index: number = random
