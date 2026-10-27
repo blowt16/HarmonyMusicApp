@@ -1,3 +1,11 @@
+/**
+ * 文件：PlayPage.ets
+ * 职责：深色沉浸播放页。
+ *
+ * 页面使用独立的 player* 颜色 token，不污染浅色主界面：
+ * 进入时写入深色值并切白状态栏，退出时恢复浅色。
+ * 播放状态、进度、歌词都来自 PlayerService 的监听器，页面本身不操作 AVPlayer。
+ */
 import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
 import { thumbnail } from '../utils/ImageUtils';
@@ -36,6 +44,12 @@ struct PlayPage {
   private songListener: ((song: Song | null) => void) | null = null;
   private stateListener: ((state: PlayerState) => void) | null = null;
 
+  /**
+   * 进入播放页：
+   * 1. 切换到深色 player* token，并设置状态栏；
+   * 2. 先读取当前播放状态，避免页面第一帧空白；
+   * 3. 注册歌曲 / 状态监听，后续由 PlayerService 推送更新。
+   */
   async aboutToAppear() {
     this.applyPlayerTokens();
     this.setStatusBarLight(true);
@@ -85,6 +99,10 @@ struct PlayPage {
     }
   }
 
+  /**
+   * 写入播放页专用深色 token。
+   * 页面通过 @StorageLink 绑定，写入后 UI 自动切换。
+   */
   applyPlayerTokens() {
     AppStorage.setOrCreate<string>('playerBg', '#0B0C10');
     AppStorage.setOrCreate<string>('playerSurface', '#1A1A20');
@@ -93,6 +111,9 @@ struct PlayPage {
     AppStorage.setOrCreate<string>('playerAccent', '#FF6B72');
   }
 
+  /**
+   * 退出播放页时把 player* token 恢复成浅色，避免影响主界面。
+   */
   restorePlayerTokens() {
     AppStorage.setOrCreate<string>('playerBg', '#F7F6F2');
     AppStorage.setOrCreate<string>('playerSurface', '#FFFFFF');
@@ -101,6 +122,9 @@ struct PlayPage {
     AppStorage.setOrCreate<string>('playerAccent', '#C8424C');
   }
 
+  /**
+   * 深色页状态下把状态栏内容切成白色，退出时恢复黑色。
+   */
   async setStatusBarLight(darkPage: boolean) {
     try {
       const mainWindow = await window.getLastWindow(getContext(this));
@@ -115,6 +139,9 @@ struct PlayPage {
     }
   }
 
+  /**
+   * 封面旋转：播放时每 50ms 转 1°，暂停/停止时停住。
+   */
   startRotation() {
     if (this.timer) {
       return;

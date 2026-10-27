@@ -1,3 +1,10 @@
+/**
+ * 文件：LoginPage.ets
+ * 职责：固定演示账号登录页。
+ *
+ * 登录流程：勾选说明 → 校验账号密码 → 保存登录态 → 启动 MainAbility。
+ * 校验是纯本地逻辑，不连接真实账号系统；密码不会写入 Preferences。
+ */
 import { common, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
@@ -49,6 +56,11 @@ struct LoginPage {
     }
   }
 
+  /**
+   * 执行登录。
+   * 先清空上一次的错误；协议未勾选直接提示；
+   * 校验失败把错误落到具体输入框；成功后保存登录态并切到 MainAbility。
+   */
   async doLogin() {
     this.usernameError = '';
     this.passwordError = '';
@@ -59,6 +71,7 @@ struct LoginPage {
       return;
     }
 
+    // 先做纯校验，不改变登录态；错误按账号 / 密码分别落到对应输入框
     const validation: AuthValidationResult = AuthService.validate(this.username, this.password);
     if (!validation.success) {
       if (validation.message === '请输入账号') {

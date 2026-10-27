@@ -1,3 +1,15 @@
+/**
+ * 文件：Index.ets
+ * 职责：主界面，承载首页 / 搜索 / 收藏 / 我的四个 Tab。
+ *
+ * 数据流：
+ * - Index 是收藏、历史、搜索结果的唯一数据源；
+ * - 子组件（FavoritesView / ProfileView）通过 @Prop 接收数据，通过回调触发操作；
+ * - 播放统一交给 PlayerService，Index 只监听播放状态并更新迷你播放器。
+ *
+ * 注意：这个页面比较大，阅读时可以先看 aboutToAppear（初始化与监听）、
+ * loadHome（首页数据）、runSearch/loadMore（搜索）、handleLogout（退出登录）。
+ */
 import { ApiService } from '../services/ApiService';
 import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
@@ -125,6 +137,13 @@ struct Index {
   private recommendedNoMore: boolean = false;
   private miniCdTimer: number = 0;
 
+  /**
+   * 页面初始化：
+   * 1. 注入 Context，读取昵称、音质偏好；
+   * 2. 注册播放状态 / 歌曲变化 / 错误监听，驱动迷你播放器；
+   * 3. 读取收藏、历史、搜索历史和首页数据。
+   * 监听器必须在 aboutToDisappear 里移除，避免页面销毁后仍被回调。
+   */
   async aboutToAppear() {
     this.storageService.setContext(getContext(this));
     this.authService.setContext(getContext(this));
@@ -204,6 +223,11 @@ struct Index {
     this.stopMiniCdRotation();
   }
 
+  /**
+   * 刷新收藏和最近播放。
+   * 切 Tab、从播放页返回、收藏/取消收藏、清空历史后都会调用，
+   * 保证 Index、FavoritesView、ProfileView 看到的是同一份数据。
+   */
   async refreshLibrary() {
     this.favorites = await this.storageService.getFavorites();
     this.history = await this.storageService.getPlayHistory();
@@ -213,6 +237,11 @@ struct Index {
     this.searchHistory = await this.storageService.getSearchHistory();
   }
 
+  /**
+   * 加载首页数据：
+   * 新专辑、推荐歌单、为你推荐歌曲三个请求顺序执行。
+   * 第一个专辑作为 16:9 精选卡；都没有则标记 homeError，页面显示错误卡 + 本地精选。
+   */
   async loadHome() {
     this.isLoadingHome = true;
     this.homeError = false;
@@ -258,6 +287,9 @@ struct Index {
     return this.favorites.some((item: Song): boolean => item.id === song.id);
   }
 
+  /**
+   * 收藏 / 取消收藏后立即重新读取列表，让收藏 Tab 和计数同步更新。
+   */
   async toggleFavoriteSong(song: Song) {
     await this.storageService.toggleFavorite(song);
     await this.refreshLibrary();
@@ -310,6 +342,11 @@ struct Index {
     return this.searchResults.filter((song: Song) => this.playerService.canPlay(song));
   }
 
+  /**
+   * 从列表的第 index 首开始播放。
+   * 先把整个列表交给 PlayerService，播放页和迷你播放器共用这一份播放队列；
+   * 不可播放的 VIP/付费歌曲在入口处直接拦截。
+   */
   async playSongsAt(songs: Song[], index: number) {
     if (index < 0 || index >= songs.length) {
       return;
@@ -343,12 +380,22 @@ struct Index {
     router.pushUrl({ url: 'pages/PlayPage' });
   }
 
+  /**
+   * 清空最近播放，并立即刷新收藏页 / 个人页的计数。
+   */
   async clearHistory() {
     await this.storageService.clearPlayHistory();
     await this.refreshLibrary();
     promptAction.showToast({ message: '已清空最近播放', duration: 1500 });
   }
 
+  /**
+   * 执行搜索。
+   *
+   * 关键点：每次搜索递增 searchRequestId，请求返回时只有「仍是最新请求」
+   * 才允许写列表，防止快速改关键词时旧结果覆盖新结果。
+   * 搜索历史先写本地再发请求，网络失败也不会丢历史。
+   */
   async runSearch() {
     const keyword: string = this.searchKeyword.trim();
     if (!keyword) {
@@ -379,6 +426,11 @@ struct Index {
     this.searchLoading = false;
   }
 
+  /**
+   * 搜索分页加载。
+   * 失败时只标记 loadMoreFailed，保留已加载内容；
+   * 接口返回空页时把 total 设为当前长度，避免 onReachEnd 反复请求。
+   */
   async loadMore() {
     if (this.searchLoading || this.searchResults.length >= this.searchTotal) {
       return;
@@ -453,6 +505,9 @@ struct Index {
     }
   }
 
+  /**
+   * 迷你播放器 CD 旋转：每 50ms 转 1°，只在播放时启动。
+   */
   startMiniCdRotation() {
     if (this.miniCdTimer) {
       return;
@@ -473,6 +528,12 @@ struct Index {
     router.pushUrl({ url: 'pages/SettingsPage' });
   }
 
+  /**
+   * 退出登录。
+   * 顺序很重要：先停播 → 释放播放器 → 重置状态 → 销毁 AVSession →
+   * 清登录态 → 启动 EntryAbility 登录页 → 延迟结束当前 Ability。
+   * 这样退出后不会继续出声，也不会把上一个账号的播放状态带回来。
+   */
   async handleLogout() {
     if (this.isLoggingOut) {
       return;

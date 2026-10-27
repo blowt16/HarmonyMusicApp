@@ -1,6 +1,15 @@
 import { LyricLine, Song } from '../models/MusicModel';
 import { PlayerService } from '../services/PlayerService';
 
+/**
+ * 文件：LyricView.ets
+ * 职责：播放页的歌词区域。
+ *
+ * 数据来源：
+ * - PlayerService 的歌词变化监听器负责告诉当前行索引；
+ * - 歌曲变化时重新读取歌词；本地示例音频直接显示“无歌词”空态。
+ * 点击某行歌词会调用 seekTo，下一轮 timeUpdate 会自动重新计算当前行。
+ */
 @Component
 export struct LyricView {
   @StorageLink('playerMuted') playerMuted: string = '#C9C7D0';
@@ -16,6 +25,10 @@ export struct LyricView {
   private lyricListener: ((index: number, text: string) => void) | null = null;
   private songListener: ((song: Song | null) => void) | null = null;
 
+  /**
+   * 注册歌词 / 歌曲监听。
+   * 歌曲变化后延迟 300ms 再读歌词，给 PlayerService 留出写入新歌词的时间。
+   */
   aboutToAppear() {
     this.loadLyrics();
 
@@ -45,6 +58,10 @@ export struct LyricView {
     }
   }
 
+  /**
+   * 读取当前歌曲的歌词。
+   * 本地示例没有歌词，直接清空列表让 UI 显示空态。
+   */
   loadLyrics() {
     const song: Song | null = this.playerService.getCurrentSong();
     this.isLocalDemo = song !== null && song.assetName !== undefined;

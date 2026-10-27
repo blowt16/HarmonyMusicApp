@@ -1,3 +1,12 @@
+/**
+ * 文件：SettingsPage.ets
+ * 职责：设置页，包含播放效果、背景设置、本地示例和关于信息。
+ *
+ * 背景有两种来源：
+ * - 内置背景：从 rawfile 复制到 filesDir/backgrounds，存 file:// 路径；
+ * - 相册选图：系统返回 URI，直接保存。
+ * 透明度通过 AppStorage 同步给主界面 / 搜索 / 收藏 / 歌单页。
+ */
 import { EffectLevel } from '../models/MusicModel';
 import { StorageService } from '../services/StorageService';
 import { PlayerService } from '../services/PlayerService';
@@ -100,6 +109,9 @@ struct SettingsPage {
   private storageService: StorageService = StorageService.getInstance();
   private playerService: PlayerService = PlayerService.getInstance();
 
+  /**
+   * 检测设备是否支持沉浸光感；支持时使用更精致的材质级别。
+   */
   aboutToAppear(): void {
     const materialTypes: hdsMaterial.MaterialType[] = hdsMaterial.getSystemMaterialTypes();
     if (materialTypes.includes(hdsMaterial.MaterialType.IMMERSIVE)) {
@@ -109,6 +121,10 @@ struct SettingsPage {
     }
   }
 
+  /**
+   * 从系统相册选择一张背景图。
+   * 只保存 URI，不复制文件；URI 失效时由背景加载失败兜底。
+   */
   async pickBgImage() {
     try {
       const photoSelectOptions = new picker.PhotoSelectOptions();
@@ -138,6 +154,11 @@ struct SettingsPage {
     return this.bgImage.endsWith(fileName);
   }
 
+  /**
+   * 应用内置背景：
+   * 先把 rawfile 复制到应用私有目录，再把 file:// 路径写入 AppStorage 和 Preferences。
+   * 内置背景默认至少 35% 遮罩，保证文字可读。
+   */
   async applyBuiltInBackground(bg: BuiltInBackground) {
     try {
       const context = getContext(this) as common.UIAbilityContext;

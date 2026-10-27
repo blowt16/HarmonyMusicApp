@@ -1,6 +1,13 @@
 import { PlayerService } from '../services/PlayerService';
 import { PlayMode, PlayerState, Song } from '../models/MusicModel';
 
+/**
+ * 文件：PlayerControls.ets
+ * 职责：播放页底部的控制条：进度、播放模式、上一首 / 播放 / 下一首、播放列表入口。
+ *
+ * 组件只负责显示和转发操作，真正的播放状态由 PlayerService 维护：
+ * 进入时读取一次当前状态，之后通过监听器增量更新。
+ */
 @Component
 export struct PlayerControls {
   @StorageLink('playerText') playerText: string = '#F5F5F7';
@@ -21,6 +28,9 @@ export struct PlayerControls {
   private songListener: ((song: Song | null) => void) | null = null;
   private progressListener: ((position: number, duration: number) => void) | null = null;
 
+  /**
+   * 先同步一次当前状态，避免第一帧空白；再注册三类监听。
+   */
   aboutToAppear() {
     this.currentState = this.playerService.getPlayerState();
     this.currentSong = this.playerService.getCurrentSong();

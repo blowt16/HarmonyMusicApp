@@ -2,8 +2,13 @@ import { Song } from '../../models/MusicModel';
 import { thumbnail } from '../../utils/ImageUtils';
 
 /**
- * 收藏 Tab：收藏 / 最近播放两个 segment。
- * 数据由 Index 统一读取并在切换 Tab、返回页面时刷新。
+ * 文件：FavoritesView.ets
+ * 职责：收藏 Tab，包含「收藏 / 最近播放」两个 segment。
+ *
+ * 这个组件本身不读 Preferences：
+ * - 数据由 Index 统一读取，通过 @Prop 传进来；
+ * - 播放、清空历史、回首页 / 搜索等操作通过回调交回 Index。
+ * 这样收藏页和 Index 的计数永远来自同一份数据。
  */
 @Component
 export struct FavoritesView {
@@ -28,6 +33,9 @@ export struct FavoritesView {
 
   @State segmentIndex: number = 0;
 
+  /**
+   * 当前 segment 对应的列表：0 收藏，1 最近播放。
+   */
   private currentList(): Song[] {
     return this.segmentIndex === 0 ? this.favorites : this.history;
   }

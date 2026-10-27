@@ -2,9 +2,25 @@ import { Song, SearchResult, LyricLine, AudioQuality, SongQualityInfo, PlaylistI
 import http from '@ohos.net.http';
 import { CacheService } from './CacheService';
 
+/**
+ * 文件：ApiService.ets
+ * 职责：封装所有网易云公开接口的请求、字段映射、缓存和错误兜底。
+ *
+ * 页面不直接发 HTTP，而是调用这里的方法拿项目自己的 Song / PlaylistInfo。
+ * 每个接口基本遵循同一套路：
+ * 1. 先拼缓存 key，命中 CacheService 就直接返回；
+ * 2. 发请求，连接 / 读取各 10 秒超时；
+ * 3. 同时检查 HTTP 200 和业务 code 200；
+ * 4. 把接口字段映射成项目模型，并计算 playable / maxBr；
+ * 5. 成功写缓存；失败返回空数组 / null，不把异常抛给页面。
+ */
+
 const API_ORIGIN: string = 'https://music.163.com';
 const BASE_URL: string = `${API_ORIGIN}/api/cloudsearch/pc`;
 const LYRIC_BASE: string = `${API_ORIGIN}/api/song/lyric`;
+
+// ===== 搜索 / 歌曲接口的原始响应结构 =====
+// 这些 interface 只描述接口字段，和页面使用的 Song 模型分开，避免页面被接口格式绑死
 
 interface ArtistItem {
   id: number;
@@ -23,6 +39,11 @@ interface QualityDetail {
   sr: number;
 }
 
+/**
+ * 接口返回的版权 / 权限信息。
+ * pl = 可播放的最高码率，0 通常表示不可播；
+ * fee：0 免费、1 VIP、8 部分免费（项目里按“可播”处理）。
+ */
 interface SongPrivilege {
   pl?: number;
   dl?: number;
@@ -181,6 +202,8 @@ interface PlaylistDetailApiResponse {
   playlist: PlaylistDetailApiData;
 }
 
+// ===== 个性化推荐 / 新歌接口的响应结构 =====
+
 interface PersonalizedPlaylistItem {
   id: number;
   name: string;
@@ -260,12 +283,16 @@ interface NewAlbumApiResponse {
   result: NewAlbumItem[];
 }
 
+/**
+ * 网络数据服务（单例）。
+ * 所有接口共享一个 HttpRequest 实例和一份内存缓存。
+ */
 export class ApiService {
   private static instance: ApiService;
   private httpRequest: http.HttpRequest;
   private cache: CacheService = CacheService.getInstance();
 
-  // 缓存 TTL（毫秒）
+  // 不同数据的缓存时长：变化越快，TTL 越短
   private static readonly TTL_SEARCH = 3 * 60 * 1000;      // 搜索结果 3 分钟
   private static readonly TTL_LYRIC = 30 * 60 * 1000;       // 歌词 30 分钟
   private static readonly TTL_SONG_DETAIL = 15 * 60 * 1000;  // 歌曲详情 15 分钟
@@ -310,7 +337,17 @@ export class ApiService {
     return maxBr;
   }
 
+  /**
+   * 搜索歌曲。
+   * 使用 POST 表单请求 cloudsearch 接口，返回结果会先按关键词 / 页码 / 条数缓存。
+   * 失败时返回 error: true 的空结果，让搜索页区分「无结果」和「网络失败」。
+   *
+   * @param keyword 搜索关键词
+   * @param page 页码，从 1 开始
+   * @param limit 每页条数
+   */
   async searchMusic(keyword: string, page: number = 1, limit: number = 20): Promise<SearchResult> {
+    // 缓存 key 带上全部参数，不同分页 / 条数不会互相覆盖
     const cacheKey = `search:${keyword}:p${page}:l${limit}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
@@ -320,6 +357,7 @@ export class ApiService {
     try {
       const url: string = BASE_URL;
       const offset: number = (page - 1) * limit;
+      // 网易云搜索接口用表单编码，type=1 表示搜索单曲
       const body: string = `s=${encodeURIComponent(keyword)}&type=1&limit=${limit}&offset=${offset}`;
 
       const response = await this.httpRequest.request(url, {
@@ -337,6 +375,7 @@ export class ApiService {
         extraData: body
       });
 
+      // 双重校验：HTTP 200 只代表请求成功，业务 code 200 才代表接口真的返回了数据
       if (response.responseCode === 200) {
         const data: SearchResultData = JSON.parse(response.result as string) as SearchResultData;
         if (data.code === 200 && data.result && data.result.songs) {
@@ -345,6 +384,7 @@ export class ApiService {
             const albumName: string = item.al ? item.al.name : '未知';
             const coverUrl: string = (item.al && item.al.picUrl) ? item.al.picUrl.replace('http://', 'https://') : '';
 
+            // 接口用 l / m / h / sq 四组字段表示四档音质，按存在与否收集
             const qualities: SongQualityInfo[] = [];
             if (item.l) {
               qualities.push({ level: AudioQuality.STANDARD, br: item.l.br, size: item.l.size, sr: item.l.sr });
@@ -359,6 +399,7 @@ export class ApiService {
               qualities.push({ level: AudioQuality.LOSSLESS, br: item.sq.br, size: item.sq.size, sr: item.sq.sr });
             }
 
+            // 可播放判定：有可播码率，或免费（0），或部分免费（8）
             const playMaxBr: number = item.privilege && item.privilege.pl ? item.privilege.pl : 0;
             const fee: number = item.fee !== undefined ? item.fee : 0;
             const playable: boolean = playMaxBr > 0 || fee === 0 || fee === 8;
@@ -385,6 +426,7 @@ export class ApiService {
           return result;
         }
       }
+      // 业务失败 / 空响应：标记 error，搜索页会显示“网络连接失败”而不是“无结果”
       return { songs: [], total: 0, page, error: true };
     } catch (error) {
       console.error('Search music error:', error);
@@ -392,6 +434,16 @@ export class ApiService {
     }
   }
 
+  /**
+   * 获取歌曲播放地址。
+   * 先按用户选择的音质请求；如果歌曲最高码率更低，就把请求码率压到 maxBr，
+   * 避免先请求 320k 再回退。高音质拿不到 URL 时自动回退标准音质。
+   *
+   * @param songId 歌曲 id
+   * @param quality 目标音质
+   * @param maxBr 歌曲允许的最高码率，0 表示不限制
+   * @returns 播放 URL；失败返回空字符串
+   */
   async getSongUrl(songId: number, quality: AudioQuality = AudioQuality.EXHIGH, maxBr: number = 0): Promise<string> {
     let effectiveQuality: number = quality;
     if (maxBr > 0 && effectiveQuality > maxBr) {
@@ -426,7 +478,7 @@ export class ApiService {
         }
       }
 
-      // 高音质失败时，尝试标准音质
+      // 高音质失败时，尝试标准音质；标准音质也失败才返回空字符串
       if (effectiveQuality !== AudioQuality.STANDARD) {
         console.error('Failed to get high quality url, trying standard quality');
         return this.getSongUrl(songId, AudioQuality.STANDARD);
@@ -440,6 +492,11 @@ export class ApiService {
     }
   }
 
+  /**
+   * 获取并解析歌词。
+   * 接口返回的是 LRC 文本，parseLyric 会把它转成带时间戳的数组。
+   * 没有歌词 / 请求失败都返回空数组，页面显示“暂无歌词”。
+   */
   async getLyric(songId: number): Promise<LyricLine[]> {
     const cacheKey = `lyric:${songId}`;
     const cached = this.cache.get(cacheKey);
@@ -471,6 +528,11 @@ export class ApiService {
     }
   }
 
+  /**
+   * 解析逐行 LRC 歌词。
+   * 只处理 `[分:秒.毫秒]歌词` 这种格式；空行和没有时间戳的行会被忽略。
+   * 返回前按时间升序排序，PlayerService 才能从后往前快速找当前行。
+   */
   private parseLyric(lyricStr: string): LyricLine[] {
     const lines: LyricLine[] = [];
     const lyricLines: string[] = lyricStr.split('\n');
@@ -492,6 +554,10 @@ export class ApiService {
     return lines.sort((a: LyricLine, b: LyricLine): number => a.time - b.time);
   }
 
+  /**
+   * 获取单曲详情（歌名、歌手、专辑、时长、版权标记）。
+   * 歌单批量补歌时也会复用类似的字段映射逻辑。
+   */
   async getSongDetail(songId: number): Promise<Song | null> {
     const cacheKey = `detail:${songId}`;
     const cached = this.cache.get(cacheKey);
@@ -543,7 +609,9 @@ export class ApiService {
 
   // ===== 歌单相关 API =====
 
-  // 搜索歌单
+  /**
+   * 搜索歌单（type=1000），用于搜索页的歌单结果。
+   */
   async searchPlaylists(keyword: string, limit: number = 10): Promise<PlaylistSearchResult> {
     const cacheKey = `plsearch:${keyword}:l${limit}`;
     const cached = this.cache.get(cacheKey);
@@ -595,7 +663,13 @@ export class ApiService {
     }
   }
 
-  // 获取歌单详情（歌曲列表）
+  /**
+   * 获取歌单详情和完整歌曲列表。
+   *
+   * 接口的 tracks 通常只有前 10 首，但 trackIds 包含完整 id 列表。
+   * 所以先映射 tracks，再用 trackIds 找出缺失的 id，每 100 首一批补全，
+   * 这样歌单页才能显示全部歌曲。
+   */
   async getPlaylistDetail(playlistId: number): Promise<PlaylistDetail | null> {
     const cacheKey = `pldetail:${playlistId}`;
     const cached = this.cache.get(cacheKey);
@@ -626,7 +700,7 @@ export class ApiService {
         if (data.code === 200 && data.playlist) {
           const pl: PlaylistDetailApiData = data.playlist;
 
-          // 先用接口返回的 tracks（通常只有前 10 首）
+          // 第一步：先映射接口直接返回的 tracks（通常只有前 10 首）
           let songs: Song[] = pl.tracks.map((track: PlaylistDetailTrack): Song => {
             const artistNames: string =
             track.ar && track.ar.length > 0 ? track.ar.map((a: PlaylistDetailTrackArtist): string => a.name).join('/') :
@@ -667,7 +741,7 @@ export class ApiService {
             };
           });
 
-          // 如果 tracks 不完整，用 trackIds 分批补全
+          // 第二步：tracks 不完整时，用 trackIds 找出缺失 id 并分批补全
           const totalCount: number = pl.trackCount || 0;
           if (songs.length < totalCount && pl.trackIds && pl.trackIds.length > 0) {
             const existingIds: Set<number> = new Set();
@@ -712,7 +786,10 @@ export class ApiService {
     }
   }
 
-  // 批量获取歌曲详情（每批最多 100 首）
+  /**
+   * 批量获取歌曲详情。
+   * 调用方负责把 id 按 100 首分批传入；失败返回空数组，不阻塞其他批次。
+   */
   private async batchGetSongDetails(ids: number[]): Promise<Song[]> {
     try {
       const idsStr: string = JSON.stringify(ids);
@@ -779,7 +856,10 @@ export class ApiService {
     }
   }
 
-  // 获取推荐歌单
+  /**
+   * 获取首页推荐歌单（个性化歌单接口）。
+   * 结果缓存 10 分钟，避免每次回首页都重新请求。
+   */
   async getPersonalizedPlaylists(limit: number = 10): Promise<PlaylistInfo[]> {
     const cacheKey = `personalized:l${limit}`;
     const cached = this.cache.get(cacheKey);
@@ -822,6 +902,11 @@ export class ApiService {
     }
   }
 
+  /**
+   * 获取首页「为你推荐」歌曲。
+   * 新歌接口返回的字段和搜索接口不同（lMusic/mMusic/hMusic/sqMusic），
+   * 这里单独映射一次。该接口目前不写缓存，保证每次刷新能看到新推荐。
+   */
   async getRecommendedSongs(limit: number = 12): Promise<Song[]> {
     try {
       const url: string = `${API_ORIGIN}/api/personalized/newsong?limit=${limit}`;
@@ -891,7 +976,13 @@ export class ApiService {
     }
   }
 
-  // 获取专辑详情（通过搜索接口，专辑详情需要登录）
+  /**
+   * 获取专辑详情。
+   *
+   * 专辑详情接口需要登录，这里改走公开的搜索接口：
+   * 用「专辑名 + 歌手名」搜索，再按专辑名 / 歌手名过滤；
+   * 如果过滤后为空，退回搜索结果前 10 首，保证页面有内容。
+   */
   async getAlbumDetail(albumId: number, albumName: string, artistName: string, coverUrl: string): Promise<PlaylistDetail | null> {
     const cacheKey = `album:${albumId}`;
     const cached = this.cache.get(cacheKey);
@@ -912,6 +1003,7 @@ export class ApiService {
           return artistMatch || albumMatch;
         });
 
+        // 过滤后没有结果时不要返回空页，退回搜索结果前 10 首作为近似专辑
         const songs: Song[] = filtered.length > 0 ? filtered : searchResult.songs.slice(0, 10);
 
         const result: PlaylistDetail = {
@@ -935,7 +1027,10 @@ export class ApiService {
     }
   }
 
-  // 获取新专辑推荐
+  /**
+   * 获取首页新专辑推荐。
+   * 返回的是 PlaylistInfo，isAlbum = true，歌单详情页据此走 getAlbumDetail。
+   */
   async getNewAlbums(limit: number = 8): Promise<PlaylistInfo[]> {
     const cacheKey = `newalbums:l${limit}`;
     const cached = this.cache.get(cacheKey);

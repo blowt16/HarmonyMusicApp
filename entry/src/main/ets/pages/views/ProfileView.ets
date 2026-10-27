@@ -1,6 +1,10 @@
 /**
- * 我的 Tab：个人卡、收藏/最近播放统计、设置入口与退出登录。
- * 不在个人卡里重复退出按钮。
+ * 文件：ProfileView.ets
+ * 职责：我的 Tab，显示个人卡、收藏 / 最近播放统计、设置入口与退出登录。
+ *
+ * 与 FavoritesView 一样，数据由 Index 通过 @Prop 传入，
+ * 点击设置 / 退出 / 查看收藏通过回调交给 Index 处理。
+ * 个人卡里不重复放退出按钮，避免和底部操作区重复。
  */
 @Component
 export struct ProfileView {

@@ -3,18 +3,23 @@ import fs from '@ohos.file.fs';
 import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 
 /**
- * 封面图本地缓存服务
- * 将网络图片下载到应用缓存目录，避免重复下载和解码
- * 最大缓存 100 张图片，超出时淘汰最早使用的
+ * 文件：ImageCacheService.ets
+ * 职责：把网络封面下载到应用缓存目录，减少重复下载和解码。
+ *
+ * 缓存策略：
+ * - 文件名由 URL 的哈希 + 扩展名生成，同一 URL 稳定命中同一文件；
+ * - memoryIndex 只记录「文件名 → 本地路径」，启动时扫描目录重建；
+ * - pendingDownloads 保存正在进行的下载 Promise，避免同一 URL 并发下载多次；
+ * - 文件数超过上限时，按内存索引的插入顺序淘汰最早加入的条目。
  */
 export class ImageCacheService {
   private static instance: ImageCacheService;
   private context: Context | null = null;
-  private memoryIndex: Map<string, string> = new Map(); // url → localPath
-  private pendingDownloads: Map<string, Promise<string>> = new Map(); // 防止同一 URL 重复下载
+  private memoryIndex: Map<string, string> = new Map(); // 文件名 → 本地绝对路径
+  private pendingDownloads: Map<string, Promise<string>> = new Map(); // URL → 正在进行的下载任务
   private initialized: boolean = false;
-  private readonly maxCacheFiles: number = 100;
-  private readonly cacheSubDir: string = 'cover_cache';
+  private readonly maxCacheFiles: number = 100; // 最多缓存 100 张封面
+  private readonly cacheSubDir: string = 'cover_cache'; // 缓存子目录名
 
   private constructor() {}
 
@@ -26,7 +31,8 @@ export class ImageCacheService {
   }
 
   /**
-   * 初始化，需在 Ability onCreate 中调用
+   * 初始化服务，需要在 Ability.onCreate 中调用。
+   * 创建缓存目录，并扫描已有文件重建内存索引，保证重启后仍能命中旧缓存。
    */
   async init(context: Context): Promise<void> {
     this.context = context;
@@ -36,7 +42,7 @@ export class ImageCacheService {
         fs.mkdirSync(cacheDir);
       }
     } catch (e) {
-      // 目录已存在，忽略
+      // 目录已存在或创建失败都不阻塞启动，后续下载会再尝试
     }
     await this.rebuildIndex();
     this.initialized = true;
@@ -50,10 +56,12 @@ export class ImageCacheService {
   }
 
   /**
-   * 从 URL 生成文件名（MD5 hash）
+   * 从 URL 生成稳定文件名。
+   * 这里用 32 位滚动哈希而不是 MD5，避免为一个小功能引入加密库；
+   * 哈希碰撞概率对课程项目的数据量可以接受。
    */
   private urlToFileName(url: string): string {
-    // 简单哈希：用 charCode 累积，避免引入重依赖
+    // 简单哈希：逐字符累积，结果截断为 32 位整数
     let hash = 0;
     for (let i = 0; i < url.length; i++) {
       const ch = url.charCodeAt(i);
@@ -74,7 +82,8 @@ export class ImageCacheService {
   }
 
   /**
-   * 启动时扫描缓存目录，重建内存索引
+   * 启动时扫描缓存目录，重建「文件名 → 路径」索引。
+   * 应用重启后内存索引会丢失，但磁盘文件还在，这一步让缓存继续可用。
    */
   private async rebuildIndex(): Promise<void> {
     const cacheDir = this.getCacheDir();
@@ -90,10 +99,13 @@ export class ImageCacheService {
   }
 
   /**
-   * 获取缓存图片的本地路径
-   * 如果已缓存返回本地路径，否则下载后返回
+   * 获取封面本地路径。
+   * 流程：内存索引命中 → 检查磁盘文件是否还在 → 未命中则下载。
+   * 如果服务尚未初始化或 URL 为空，直接把原始 URL 还给调用方，
+   * 让 Image 组件按网络图片处理。
+   *
    * @param url 网络图片 URL
-   * @returns 本地文件路径（可直接传给 Image 组件）
+   * @returns 本地文件路径；下载失败时返回原始 URL
    */
   async getCachedPath(url: string): Promise<string> {
     if (!url || !this.initialized) {
@@ -103,27 +115,27 @@ export class ImageCacheService {
     const fileName = this.urlToFileName(url);
     const localPath = `${this.getCacheDir()}/${fileName}`;
 
-    // 1. 内存索引命中
+    // 1. 内存索引命中：再确认磁盘文件没被系统清理
     if (this.memoryIndex.has(fileName)) {
       try {
         if (fs.accessSync(localPath)) {
-          // 更新文件访问时间（LRU 依据）
+          // 打开一次文件，尽量让文件系统更新访问时间
           fs.openSync(localPath, fs.OpenMode.READ_ONLY);
           return localPath;
         }
       } catch (e) {
-        // 文件已被系统清理，继续下载
+        // 文件已被系统清理，删除索引后走下载流程
         this.memoryIndex.delete(fileName);
       }
     }
 
-    // 2. 防止同一 URL 并发重复下载
+    // 2. 同一 URL 已有下载任务时复用 Promise，避免并发重复下载
     const existing = this.pendingDownloads.get(url);
     if (existing) {
       return existing;
     }
 
-    // 3. 下载并缓存
+    // 3. 发起下载，并把 Promise 放进 pendingDownloads 供其他调用复用
     const downloadPromise = this.downloadAndCache(url, localPath, fileName);
     this.pendingDownloads.set(url, downloadPromise);
 
@@ -131,10 +143,16 @@ export class ImageCacheService {
       const result = await downloadPromise;
       return result;
     } finally {
+      // 无论成功失败都要移除，避免后续请求永远拿到旧 Promise
       this.pendingDownloads.delete(url);
     }
   }
 
+  /**
+   * 下载图片并写入缓存目录。
+   * 请求用 ARRAY_BUFFER 直接拿二进制，避免先转 base64 再解码。
+   * 下载或写文件失败时不抛异常，而是返回原始 URL，让 UI 仍有机会显示网络图。
+   */
   private async downloadAndCache(url: string, localPath: string, fileName: string): Promise<string> {
     try {
       const httpRequest = http.createHttp();
@@ -149,14 +167,14 @@ export class ImageCacheService {
       httpRequest.destroy();
 
       if (response.responseCode === 200) {
-        // 写入本地文件
+        // 写入缓存目录；文件名由 URL 哈希决定，重复下载会覆盖同一文件
         const file = fs.openSync(localPath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
         fs.writeSync(file.fd, response.result as ArrayBuffer);
         fs.closeSync(file);
 
         this.memoryIndex.set(fileName, localPath);
 
-        // 超出容量时淘汰
+        // 新增文件后检查是否超过上限
         await this.evictIfNeeded();
 
         return localPath;
@@ -170,7 +188,8 @@ export class ImageCacheService {
   }
 
   /**
-   * 缓存文件超出上限时淘汰最早的
+   * 缓存文件超出上限时，按内存索引的插入顺序淘汰最早加入的条目。
+   * 注意：这里不是严格按访问时间排序的 LRU，只是控制缓存总量的近似策略。
    */
   private async evictIfNeeded(): Promise<void> {
     if (this.memoryIndex.size <= this.maxCacheFiles) {
@@ -198,7 +217,8 @@ export class ImageCacheService {
   }
 
   /**
-   * 清空全部图片缓存
+   * 清空全部图片缓存：删除目录内文件并清空内存索引。
+   * 单个文件删除失败不影响其他文件，最后统一清空索引。
    */
   async clearAll(): Promise<void> {
     const cacheDir = this.getCacheDir();

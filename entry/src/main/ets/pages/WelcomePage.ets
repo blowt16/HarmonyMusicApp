@@ -1,3 +1,12 @@
+/**
+ * 文件：WelcomePage.ets
+ * 职责：欢迎页。
+ *
+ * 显示 1.5 秒后判断登录态：
+ * - 已登录：启动 MainAbility，并延迟结束当前 EntryAbility；
+ * - 未登录：replaceUrl 到登录页。
+ * 计时器在页面销毁时清理，避免重复跳转。
+ */
 import router from '@ohos.router';
 import { common, Want } from '@kit.AbilityKit';
 import { AuthService } from '../services/AuthService';
@@ -13,6 +22,9 @@ struct WelcomePage {
   private navigating: boolean = false;
   private authService: AuthService = AuthService.getInstance();
 
+  /**
+   * 欢迎页展示 1.5 秒后进入分流逻辑。
+   */
   aboutToAppear() {
     this.authService.setContext(getContext(this));
     this.timer = setTimeout(() => {
@@ -27,6 +39,11 @@ struct WelcomePage {
     }
   }
 
+  /**
+   * 进入主界面的分流：
+   * navigating 防止重复点击/重复计时导致多次跳转；
+   * 已登录启动 MainAbility，未登录去登录页。
+   */
   async enterApp() {
     if (this.navigating) {
       return;

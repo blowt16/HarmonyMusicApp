@@ -1,6 +1,20 @@
 import { Song, AudioQuality, EffectLevel } from '../models/MusicModel';
 import dataStorage from '@ohos.data.preferences';
 
+/**
+ * 文件：StorageService.ets
+ * 职责：统一封装业务数据的本地持久化，底层使用 Preferences。
+ *
+ * 存储约定：
+ * - 列表类数据（收藏、历史）以 JSON 字符串保存，读取时再 parse；
+ * - 简单配置（音质、透明度、效果档位）直接存数字或布尔值；
+ * - 所有写操作都 flush，保证 App 被杀掉后数据仍在；
+ * - 读失败时返回默认值，不让存储异常影响页面展示。
+ *
+ * 登录态不在这里，单独的 AuthService 使用 auth_storage 文件。
+ */
+
+// ===== Preferences 键名 =====
 const SEARCH_HISTORY_KEY = 'search_history';
 const PLAY_HISTORY_KEY = 'play_history';
 const FAVORITES_KEY = 'favorites';
@@ -9,9 +23,15 @@ const THEME_DARK_KEY = 'theme_dark';
 const EFFECT_LEVEL_KEY = 'effect_level';
 const BACKGROUND_IMAGE_KEY = 'bg_image';
 const BACKGROUND_OPACITY_KEY = 'bg_opacity';
+// 容量上限：避免历史 / 收藏无限增长，也让 JSON 读写保持在可控大小
 const MAX_HISTORY_SIZE = 50;
 const MAX_FAVORITES_SIZE = 200;
 
+/**
+ * 本地存储服务（单例）。
+ * 页面、PlayerService、Ability 都通过这个入口读写业务数据，
+ * 保证「谁在存、存在哪、默认值是什么」只有一处定义。
+ */
 export class StorageService {
   private static instance: StorageService;
   private preferences: dataStorage.Preferences | null = null;
@@ -26,10 +46,17 @@ export class StorageService {
     return StorageService.instance;
   }
 
+  /**
+   * Ability 启动时注入 Context，Preferences 的打开依赖它。
+   */
   setContext(context: Context) {
     this.context = context;
   }
 
+  /**
+   * 懒加载 Preferences 实例。
+   * 所有业务数据都放在 music_app_storage 这一个文件里，首次访问时打开。
+   */
   private async getPreferences(): Promise<dataStorage.Preferences> {
     if (!this.preferences) {
       if (!this.context) {
@@ -40,7 +67,11 @@ export class StorageService {
     return this.preferences;
   }
 
-  // 搜索历史
+  // ===== 搜索历史 =====
+
+  /**
+   * 读取搜索历史，最新的关键词在前。
+   */
   async getSearchHistory(): Promise<string[]> {
     try {
       const prefs = await this.getPreferences();
@@ -52,6 +83,10 @@ export class StorageService {
     }
   }
 
+  /**
+   * 新增搜索关键词：先去重，再插到最前，超过 50 条截断。
+   * 这样重复搜索同一个词不会产生多条记录。
+   */
   async addSearchHistory(keyword: string): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -75,6 +110,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 清空搜索历史，写入空数组而不是删除键，读取逻辑更统一。
+   */
   async clearSearchHistory(): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -85,7 +123,12 @@ export class StorageService {
     }
   }
 
-  // 播放历史
+  // ===== 播放历史 =====
+
+  /**
+   * 读取最近播放列表，最新的歌曲在前。
+   * Song 对象整体存 JSON，页面直接用，不需要再请求接口。
+   */
   async getPlayHistory(): Promise<Song[]> {
     try {
       const prefs = await this.getPreferences();
@@ -97,6 +140,10 @@ export class StorageService {
     }
   }
 
+  /**
+   * 记录一次播放：按歌曲 id 去重，插到最前，最多保留 50 首。
+   * PlayerService 在 AVPlayer 真正进入 playing 状态时调用，保证只记一次。
+   */
   async addPlayHistory(song: Song): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -120,6 +167,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 清空播放历史。页面清空后会重新读取，保证列表和计数同步刷新。
+   */
   async clearPlayHistory(): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -130,7 +180,11 @@ export class StorageService {
     }
   }
 
-  // 收藏
+  // ===== 收藏 =====
+
+  /**
+   * 读取收藏列表，最近收藏的歌曲在前。
+   */
   async getFavorites(): Promise<Song[]> {
     try {
       const prefs = await this.getPreferences();
@@ -142,6 +196,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 添加收藏：已存在则直接返回，否则插到最前，最多 200 首。
+   */
   async addFavorite(song: Song): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -168,6 +225,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 取消收藏：按歌曲 id 过滤掉对应条目。
+   */
   async removeFavorite(songId: number): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -183,6 +243,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 判断某首歌是否已收藏，收藏按钮用它决定红心状态。
+   */
   async isFavorite(songId: number): Promise<boolean> {
     try {
       const favorites = await this.getFavorites();
@@ -193,6 +256,10 @@ export class StorageService {
     }
   }
 
+  /**
+   * 切换收藏状态：已收藏就取消，未收藏就添加。
+   * @returns 切换后的状态，true 表示现在是收藏状态。
+   */
   async toggleFavorite(song: Song): Promise<boolean> {
     try {
       const isFav = await this.isFavorite(song.id);
@@ -209,7 +276,11 @@ export class StorageService {
     }
   }
 
-  // 音质偏好
+  // ===== 播放与外观设置 =====
+
+  /**
+   * 读取用户选择的音质，默认「极高」。
+   */
   async getAudioQuality(): Promise<AudioQuality> {
     try {
       const prefs = await this.getPreferences();
@@ -221,6 +292,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 保存音质偏好，下次播放时读取。
+   */
   async setAudioQuality(quality: AudioQuality): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -231,7 +305,10 @@ export class StorageService {
     }
   }
 
-  // 主题偏好
+  /**
+   * 读取深色主题偏好。
+   * 当前主界面固定浅色，这个键作为后续接入深色模式的预留。
+   */
   async getThemeDark(): Promise<boolean> {
     try {
       const prefs = await this.getPreferences();
@@ -242,6 +319,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 保存深色主题偏好。
+   */
   async setThemeDark(isDark: boolean): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -252,7 +332,9 @@ export class StorageService {
     }
   }
 
-  // 沉浸光感效果档位
+  /**
+   * 读取沉浸光感效果档位，默认「中」。
+   */
   async getEffectLevel(): Promise<EffectLevel> {
     try {
       const prefs = await this.getPreferences();
@@ -264,6 +346,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 保存光感效果档位。设置页切换档位后，主界面通过 AppStorage 立即看到变化。
+   */
   async setEffectLevel(level: EffectLevel): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -274,7 +359,12 @@ export class StorageService {
     }
   }
 
-  // 背景图片
+  // ===== 背景图 =====
+
+  /**
+   * 读取背景图 URI。
+   * 内置背景保存的是 file:// 路径，相册选图保存的是系统返回的 URI。
+   */
   async getBgImage(): Promise<string> {
     try {
       const prefs = await this.getPreferences();
@@ -285,6 +375,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 保存背景图 URI；传空字符串表示恢复默认背景。
+   */
   async setBgImage(uri: string): Promise<void> {
     try {
       const prefs = await this.getPreferences();
@@ -295,6 +388,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 读取背景遮罩透明度，默认 0.15（背景比较明显）。
+   */
   async getBgOpacity(): Promise<number> {
     try {
       const prefs = await this.getPreferences();
@@ -305,6 +401,9 @@ export class StorageService {
     }
   }
 
+  /**
+   * 保存背景遮罩透明度，设置页滑块拖动后调用。
+   */
   async setBgOpacity(opacity: number): Promise<void> {
     try {
       const prefs = await this.getPreferences();

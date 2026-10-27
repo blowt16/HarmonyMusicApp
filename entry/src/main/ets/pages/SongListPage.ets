@@ -1,3 +1,11 @@
+/**
+ * 文件：SongListPage.ets
+ * 职责：歌单 / 专辑详情页，显示封面、名称、歌曲列表和全部播放 / 随机播放。
+ *
+ * 页面参数由 Index.openPlaylist 通过 router 传入：
+ * playlistId、playlistName、coverUrl、isAlbum、artistName。
+ * 专辑走 getAlbumDetail（搜索接口兜底），普通歌单走 getPlaylistDetail。
+ */
 import { ApiService } from '../services/ApiService';
 import { PlayerService } from '../services/PlayerService';
 import { thumbnail } from '../utils/ImageUtils';
@@ -42,6 +50,9 @@ struct SongListPage {
 
   private songListener: ((song: Song | null) => void) | null = null;
 
+  /**
+   * 从路由参数还原歌单信息，注册播放歌曲监听，然后加载详情。
+   */
   async aboutToAppear() {
     const params = router.getParams() as Record<string, Object>;
     if (params) {
@@ -72,6 +83,10 @@ struct SongListPage {
     }
   }
 
+  /**
+   * 加载详情：
+   * 专辑和普通歌单走不同接口；请求失败保留空态并提示，不把异常抛到 UI。
+   */
   async loadPlaylistDetail() {
     this.isLoading = true;
     try {
@@ -99,6 +114,10 @@ struct SongListPage {
     this.isLoading = false;
   }
 
+  /**
+   * 点击单曲播放：不可播放的 VIP/付费歌曲在入口处拦截，
+   * 可播放时把整个歌单作为播放队列，再进入播放页。
+   */
   playSong(song: Song, index: number) {
     if (!this.playerService.canPlay(song)) {
       promptAction.showToast({
@@ -112,6 +131,10 @@ struct SongListPage {
     router.pushUrl({ url: 'pages/PlayPage' });
   }
 
+  /**
+   * 全部播放 / 随机播放。
+   * 先筛出可播放歌曲；一首都没有时提示，避免进入播放页后空转。
+   */
   playAll(random: boolean) {
     if (this.songs.length === 0) {
       return;

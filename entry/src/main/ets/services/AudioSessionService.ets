@@ -10,7 +10,21 @@ import { Song, PlayerState } from '../models/MusicModel';
 const TAG: string = 'AudioSessionService';
 
 /**
- * 媒体控制回调接口
+ * 文件：AudioSessionService.ets
+ * 职责：App 与系统媒体能力之间的桥梁。
+ *
+ * 三件事：
+ * 1. AVSession：把当前歌曲、封面、播放状态、进度告诉系统，
+ *    让通知栏 / 锁屏 / 媒体面板能显示和控制；
+ * 2. 后台长时任务：播放时申请 audioPlayback 后台任务，保证切到后台还能出声；
+ * 3. 媒体按钮回调：系统事件转成 PlayerService 的方法调用。
+ *
+ * 注意：本服务不直接操作 AVPlayer，播放决定权仍在 PlayerService。
+ */
+
+/**
+ * 媒体控制回调接口。
+ * 由 PlayerService 在构造时注册，AudioSessionService 只负责转发系统事件。
  */
 export interface MediaCallbacks {
   onPlay: () => void;
@@ -20,15 +34,19 @@ export interface MediaCallbacks {
   onSeek: (position: number) => void;
 }
 
+/**
+ * 媒体会话服务（单例）。
+ * 一个 App 只需要一个 AVSession，所有播放状态都通过它同步给系统。
+ */
 export class AudioSessionService {
   private static instance: AudioSessionService;
   private context: common.UIAbilityContext | null = null;
   private session: avSession.AVSession | null = null;
   private isBackgroundTaskRunning: boolean = false;
-  private lastProgressUpdateTime: number = 0;
-  private wantAgentInstance: WantAgent | null = null;
+  private lastProgressUpdateTime: number = 0; // 进度上报节流用
+  private wantAgentInstance: WantAgent | null = null; // 通知栏点击后要拉起的 Ability
 
-  // 封面缓存
+  // 封面缓存：同一首歌反复更新元数据时不重复下载 / 解码
   private cachedCoverUrl: string = '';
   private cachedCoverPixelMap: image.PixelMap | null = null;
 
@@ -49,7 +67,8 @@ export class AudioSessionService {
   }
 
   /**
-   * 注册媒体控制回调
+   * 注册媒体控制回调。
+   * 回调由 PlayerService 提供，系统按钮事件最终会调用到这里注册的方法。
    */
   setMediaCallbacks(callbacks: MediaCallbacks): void {
     this.onPlayCallback = callbacks.onPlay;
@@ -60,7 +79,8 @@ export class AudioSessionService {
   }
 
   /**
-   * 初始化：创建 WantAgent 和 AVSession
+   * 初始化：创建 WantAgent 和 AVSession。
+   * 在 MainAbility.onCreate 的已登录分支调用。
    */
   async init(context: common.UIAbilityContext): Promise<void> {
     this.context = context;
@@ -74,7 +94,8 @@ export class AudioSessionService {
   }
 
   /**
-   * 创建 WantAgent，用于通知栏点击回到应用
+   * 创建 WantAgent，用于点击通知栏 / 媒体面板时回到应用。
+   * 固定指向 MainAbility；MainAbility 自己有登录门禁，未登录会被送回登录页。
    */
   private async createWantAgent(): Promise<void> {
     if (!this.context) {
@@ -100,6 +121,11 @@ export class AudioSessionService {
     }
   }
 
+  /**
+   * 创建 AVSession 并注册系统媒体按钮事件。
+   * 每个事件都只做一件事：转发给 PlayerService 注册的回调。
+   * 这样系统控制和 App 内控制最终走同一套播放逻辑。
+   */
   private async createAVSession(): Promise<void> {
     if (!this.context) {
       return;
@@ -145,13 +171,15 @@ export class AudioSessionService {
       }
     });
 
-    // 激活会话
+    // 激活会话，系统媒体面板才会显示当前 App 的播放信息
     await this.session.activate();
     console.info(TAG, 'AVSession activated');
   }
 
   /**
-   * 启动后台长时任务
+   * 启动后台长时任务。
+   * 只有 AVSession 激活且申请到 audioPlayback 后台任务，切后台才能继续播放。
+   * 用 isBackgroundTaskRunning 防止重复申请。
    */
   async startBackgroundTask(): Promise<void> {
     if (!this.context || this.isBackgroundTaskRunning) {
@@ -194,7 +222,11 @@ export class AudioSessionService {
   }
 
   /**
-   * 下载网络图片并转换为 PixelMap
+   * 下载封面并转换成 PixelMap，供 AVSession 元数据使用。
+   *
+   * 流程：去掉缩略图参数 → HTTP 下载二进制 → 写临时文件 →
+   * ImageSource 解码成 PixelMap → 删除临时文件 → 更新内存缓存。
+   * 任何一步失败都返回 null，通知栏只是没有封面，不影响播放。
    */
   private async fetchCoverPixelMap(coverUrl: string): Promise<image.PixelMap | null> {
     if (!coverUrl) {
@@ -273,7 +305,8 @@ export class AudioSessionService {
   }
 
   /**
-   * 更新歌曲元数据（含封面）
+   * 更新系统媒体面板显示的歌曲信息（标题、歌手、专辑、时长、封面）。
+   * 封面下载失败时仍然设置文字元数据。
    */
   async updateMetadata(song: Song): Promise<void> {
     if (!this.session) {
@@ -304,7 +337,8 @@ export class AudioSessionService {
   }
 
   /**
-   * 将 PlayerState 映射为 AVSession 播放状态
+   * 把 App 自己的 PlayerState 映射成系统 AVSession 的播放状态。
+   * LOADING 对应 PREPARE，让系统面板知道当前在准备而不是暂停。
    */
   private mapPlayerState(state: PlayerState): avSession.PlaybackState {
     switch (state) {
@@ -320,7 +354,8 @@ export class AudioSessionService {
   }
 
   /**
-   * 更新播放状态
+   * 更新系统播放状态，并根据状态启停后台长时任务。
+   * PLAYING 时申请后台任务，STOPPED 时释放；PAUSED / LOADING 保持现状。
    */
   async updatePlaybackState(state: PlayerState, position: number, duration: number): Promise<void> {
     if (!this.session) {
@@ -350,7 +385,9 @@ export class AudioSessionService {
   }
 
   /**
-   * 更新播放进度（带节流，每秒最多更新一次）
+   * 更新系统进度。
+   * AVPlayer 的 timeUpdate 频率很高，这里做 1 秒节流，
+   * 避免每秒几十次跨进程调用导致通知栏刷屏和额外开销。
    */
   async updateProgress(position: number, duration: number): Promise<void> {
     if (!this.session) {
@@ -379,12 +416,13 @@ export class AudioSessionService {
   }
 
   /**
-   * 销毁服务
+   * 销毁服务：按「后台任务 → 封面缓存 → AVSession → 引用」的顺序清理。
+   * 先停后台任务，避免会话销毁后系统仍认为 App 在后台播放。
    */
   async destroy(): Promise<void> {
     await this.stopBackgroundTask();
 
-    // 释放封面缓存
+    // 释放封面缓存，PixelMap 需要显式 release
     if (this.cachedCoverPixelMap) {
       this.cachedCoverPixelMap.release();
       this.cachedCoverPixelMap = null;
@@ -402,6 +440,7 @@ export class AudioSessionService {
       }
     }
 
+    // 清空引用，防止 Ability 销毁后仍被单例持有
     this.wantAgentInstance = null;
     this.context = null;
   }

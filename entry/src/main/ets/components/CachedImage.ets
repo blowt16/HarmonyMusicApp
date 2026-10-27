@@ -1,8 +1,12 @@
 import { ImageCacheService } from '../services/ImageCacheService';
 
 /**
- * 带本地缓存的 Image 组件
- * 先用原 URL 立即显示，缓存就绪后切换到本地路径
+ * 文件：CachedImage.ets
+ * 职责：带本地缓存的图片组件。
+ *
+ * 渲染策略：先用原始 URL 立即显示，避免白屏；
+ * ImageCacheService 下载/命中缓存后再把路径换成 file:// 本地路径。
+ * 说明：当前主列表主要直接使用 thumbnail()，这个组件保留为可选方案。
  */
 @Component
 struct CachedImage {

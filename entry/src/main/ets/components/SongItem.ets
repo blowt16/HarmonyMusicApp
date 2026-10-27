@@ -1,6 +1,13 @@
 import { thumbnail } from '../utils/ImageUtils';
 import { Song } from '../models/MusicModel';
 
+/**
+ * 文件：SongItem.ets
+ * 职责：通用歌曲行，用于搜索结果、歌单详情等列表。
+ *
+ * 通过 @Prop 接收歌曲和是否正在播放；点击时把 (song, index) 交给父组件，
+ * 由父组件决定是播放、打开菜单还是提示不可播放。
+ */
 @Component
 export struct SongItem {
   @StorageLink('textPrimary') textPrimary: string = '#000000';

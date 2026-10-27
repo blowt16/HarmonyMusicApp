@@ -4,6 +4,13 @@ import { Song, PlayerState, EffectLevel } from '../models/MusicModel';
 import { hdsMaterial } from '@kit.UIDesignKit';
 import router from '@ohos.router';
 
+/**
+ * 文件：MiniPlayer.ets
+ * 职责：旧版迷你播放器组件。
+ *
+ * 注意：当前主界面实际使用的是 Index.ets 里的 MiniBarBuilder，
+ * 这个组件没有挂载到主流程；保留它是为了对照 / 后续复用，读代码时不要混淆。
+ */
 @Component
 export struct MiniPlayer {
   @StorageLink('textPrimary') textPrimary: string = '#000000';
