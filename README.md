@@ -6,7 +6,7 @@ HarmonyOS 课程设计项目：在公开项目 [wyyhm6](https://github.com/Hanmi
 | --- | --- |
 | 应用名 | 清听 |
 | 包名 | `com.example.harmonymusicapp` |
-| 技术栈 | HarmonyOS 6.1.0(23) · ArkTS · ArkUI · AVPlayer · AVSession · Preferences · FormExtensionAbility |
+| 技术栈 | HarmonyOS 6.1.0(23) · ArkTS · ArkUI · AVPlayer · AVSession · Preferences |
 | 开发环境 | DevEco Studio，`modelVersion 6.0.2` |
 | 演示账号 | `demo / 123456`（本地校验，不连接真实账号系统） |
 | 主要文档 | [开发方案](docs/开发方案.md) · [验收测试记录](docs/验收测试记录.md) |
@@ -17,7 +17,6 @@ HarmonyOS 课程设计项目：在公开项目 [wyyhm6](https://github.com/Hanmi
 - [背景设置](#背景设置)
 - [构建与运行](#构建与运行)
 - [本地单元测试](#本地单元测试)
-- [服务卡片](#服务卡片)
 - [在线播放与版权说明](#在线播放与版权说明)
 - [导入自己合法持有的本地音乐](#导入自己合法持有的本地音乐)
 - [本地示例音频版权](#本地示例音频版权)
@@ -37,11 +36,10 @@ HarmonyOS 课程设计项目：在公开项目 [wyyhm6](https://github.com/Hanmi
 - **Tab 栏迷你播放器**：底部 Tab 栏右侧显示当前歌曲圆形封面，播放时缓慢旋转，暂停或停止后停在当前角度；点击封面进入播放页。
 - **背景设置**：内置 7 张推荐背景（晨光、天蓝、薄荷、柔光、玻璃、现场、黑胶），横向滑动选择、点击即应用；也支持系统相册选图，并可调节遮罩透明度。
 - **深色沉浸播放页**：固定深色 token，不污染浅色主界面；封面模糊背景、歌词高亮、音质弹层、播放列表弹层、状态栏切白。
-- **动态 2×2 服务卡片**：读取本地最近播放，显示“继续听”或“发现好音乐”；App 内播放后立即更新，支持系统定点刷新，点击拉起 App。
 - **本地示例音频**：`rawfile/demo_loop.wav`（项目自行生成的 24 秒无版权环境循环）；断网时仍可播放，歌词页提示“示例音频，无歌词”。
 - **本地音乐导入**：我的 → 设置 → 本地音乐，可从系统文件选择器导入自己合法持有的 MP3 / FLAC / M4A / AAC / WAV / OGG；文件复制到应用私有目录，支持播放和删除，不上传、不提交仓库。
 - **网络 API 与兜底**：搜索、推荐、歌单、歌词；请求带 10 秒连接/读取超时；搜索区分“无结果 / 网络失败”；首页失败时展示本地精选并可重试；搜索/歌单/收藏标记 VIP/付费歌曲，支持“只看可播放”，上一首/下一首自动跳过不可播放曲目。
-- **品牌资源**：清听应用名、珊瑚渐变 + 声波分层图标、启动图、卡片名。
+- **品牌资源**：清听应用名、珊瑚渐变 + 声波分层图标、启动图。
 
 ## 背景设置
 
@@ -90,13 +88,6 @@ export DEVECO_SDK_HOME="D:/DevEco Studio/sdk"
 
 结果查看 `entry/.test/default/intermediates/test/coverage_data/test_result.txt`（hvigor 在测试失败时也可能返回 0）。完整模拟器验收矩阵见 [模拟器验收测试记录](docs/验收测试记录.md)。
 
-## 服务卡片
-
-1. 回到桌面，长按空白区域 → “编辑桌面” → “卡片”。
-2. 在卡片选择器搜索“清听”，选择“清听 · 最近播放” → “添加至桌面”。
-3. 在 App 内播放任意歌曲，回到桌面可看到卡片更新为最近播放。
-4. 点击卡片会拉起 `EntryAbility`：已登录进入主界面，未登录先到登录页。
-
 ## 在线播放与版权说明
 
 很多歌显示“暂无可用播放地址”，这是网易云公开接口的**版权/会员限制**，不是 URL 拼接错误。实测同一批搜索接口返回的 `fee`/`privilege` 字段：
@@ -140,12 +131,10 @@ HarmonyMusicApp/
 │   ├── ets/
 │   │   ├── entryability/             EntryAbility：欢迎/登录窗口
 │   │   ├── mainability/              MainAbility：主界面、音频、登录门禁
-│   │   ├── formability/              2×2 服务卡片生命周期
 │   │   ├── pages/                    Welcome/Login/Index/Play/Settings/SongList/LocalMusic
 │   │   ├── pages/views/              FavoritesView / ProfileView
-│   │   ├── pages/widget/             服务卡片 UI
 │   │   ├── components/               PlayerControls / LyricView / SongItem / MiniPlayer / CachedImage
-│   │   ├── services/                 Auth / Api / Player / Storage / Widget / ImageCache / LocalMusic 等
+│   │   ├── services/                 Auth / Api / Player / Storage / ImageCache / LocalMusic 等
 │   │   ├── models/                   MusicModel
 │   │   └── utils/                    TimeUtils / ToastUtils / ImageUtils
 │   └── resources/
@@ -179,11 +168,8 @@ HarmonyMusicApp/
 
 - 未配置签名；模拟器使用未签名 HAP，真机需配置调试签名。
 - 在线播放依赖第三方公开音乐接口，部分歌曲可能无播放地址或接口失效；此时页面会 toast 提示，并提供本地示例兜底。
-- 服务卡片采用系统定点刷新（`scheduledUpdateTime: 22:15`），App 内播放后的立即刷新是主路径；系统刷新受设备调度影响。
-- 服务卡片的 `FormExtensionAbility` 与主应用共用 Preferences 文件；已验证串行的添加/刷新/移除，但两端同时写入时理论上存在文件竞争风险。课程演示数据量很小，若后续产品化建议拆分为独立存储或 DataShare。
 - 首页/搜索把“网络失败”和“服务返回异常”合并为同一错误文案；空结果、网络失败与无播放地址已分别处理。
 - 切换音质会从 0 秒重新加载当前歌曲，这是当前实现的已知行为；暂停状态下切换音质会开始播放。
-- 服务卡片首次添加时会先返回通用文案，随后异步读取最近播放并刷新，通常小于 1 秒。
 - 模拟器联网走 QEMU 虚拟以太网，无法在不修改宿主网络的情况下真正断网；断网兜底通过“API 指向不可达地址”验证了同一代码路径，本地示例本身的播放不依赖网络。
 - 本地导入只支持普通音频文件；受 DRM 保护的平台离线缓存不能播放。系统文件选择器在模拟器上一次通常只返回一个选中文件，真机可能支持多选。
 - 内置背景图按手机竖屏比例（1080×2400）准备；极端宽高比设备会裁切更多画面，但不会拉伸。

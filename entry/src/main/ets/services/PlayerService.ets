@@ -5,7 +5,6 @@ import { Song, PlayMode, PlayerState, LyricLine, AudioQuality, SongQualityInfo }
 import { ApiService } from './ApiService';
 import { AudioSessionService, MediaCallbacks } from './AudioSessionService';
 import { StorageService } from './StorageService';
-import { WidgetService } from './WidgetService';
 
 export class PlayerService {
   private static instance: PlayerService;
@@ -292,7 +291,6 @@ export class PlayerService {
     }
     this.historyRecorded = true;
     await this.storageService.addPlayHistory(this.currentSong);
-    await WidgetService.refreshAll();
   }
 
   private updateLyric() {

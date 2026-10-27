@@ -7,7 +7,6 @@ import { StorageService } from '../services/StorageService';
 import { AuthService } from '../services/AuthService';
 import { ImageCacheService } from '../services/ImageCacheService';
 import { PlayerService } from '../services/PlayerService';
-import { WidgetService } from '../services/WidgetService';
 import { EffectLevel } from '../models/MusicModel';
 
 const DOMAIN = 0x0000;
@@ -84,10 +83,6 @@ export default class MainAbility extends UIAbility {
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'MainAbility onNewWant');
-  }
-
-  onForeground(): void {
-    WidgetService.refreshAll();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

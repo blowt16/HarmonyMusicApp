@@ -24,8 +24,6 @@ export default class EntryAbility extends UIAbility {
     // 必须在第一个 await 之前解析 Want：框架不会等待异步 onCreate 完成
     const params = want.parameters;
     this.showLogin = params !== undefined && params['showLogin'] === true;
-    const fromWidget: boolean = params !== undefined && params['from'] === 'widget';
-    AppStorage.setOrCreate<boolean>('skipWelcomeDelay', fromWidget);
 
     this.storageService.setContext(this.context);
     this.authService.setContext(this.context);

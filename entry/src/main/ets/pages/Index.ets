@@ -3,7 +3,6 @@ import { PlayerService } from '../services/PlayerService';
 import { StorageService } from '../services/StorageService';
 import { AuthService } from '../services/AuthService';
 import { AudioSessionService } from '../services/AudioSessionService';
-import { WidgetService } from '../services/WidgetService';
 import { LOCAL_DEMO_SONG, LOCAL_FALLBACK_SONGS } from '../services/MockData';
 import { thumbnail } from '../utils/ImageUtils';
 import { Song, AudioQuality, PlaylistInfo, EffectLevel, PlayerState } from '../models/MusicModel';
@@ -199,7 +198,6 @@ struct Index {
       this.startMiniCdRotation();
     }
     this.refreshLibrary();
-    WidgetService.refreshAll();
   }
 
   onPageHide() {
@@ -263,7 +261,6 @@ struct Index {
   async toggleFavoriteSong(song: Song) {
     await this.storageService.toggleFavorite(song);
     await this.refreshLibrary();
-    WidgetService.refreshAll();
   }
 
   async loadMoreRecommendedSongs() {
@@ -349,7 +346,6 @@ struct Index {
   async clearHistory() {
     await this.storageService.clearPlayHistory();
     await this.refreshLibrary();
-    WidgetService.refreshAll();
     promptAction.showToast({ message: '已清空最近播放', duration: 1500 });
   }
 
